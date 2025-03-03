@@ -1,29 +1,22 @@
-[project]
-name = "python-template-repo"
+[tool.poetry]
+name = "flame"
 version = "0.1.0"
 description = ""
-authors = [
-    {name = "Alexander Röhl", email = "alexander.roehl@uni-tuebingen.de"},
-    {name = "David Hieber", email = "david.hieber@uni-tuebingen.de"}
-]
+authors = ["Alexander Röhl <alexander.roehl@uni-tuebingen.de>",
+    "David Hieber <david.hieber@uni-tuebingen.de>"]
 readme = "README.md"
-requires-python = "^3.9"
-dependencies = [
-]
 license = "Apache-2.0"
+packages = [{ include = "patterns" },{ include = "utils" }]
 
-[tool.poetry]
-packages = [{ include = "project" }]
+[tool.poetry.dependencies]
+python = "^3.9"
+flame-sdk = {git = "https://github.com/PrivateAIM/python-sdk.git", branch = "main"}
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8.3.0"
 ruff = ">=0.9.0"
 pre-commit = ">=4.0.0"
-flame = {git = "https://github.com/PrivateAIM/python-sdk.git", branch = "main"}
-
-[tool.ruff]
-line-length = 120
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
+requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
