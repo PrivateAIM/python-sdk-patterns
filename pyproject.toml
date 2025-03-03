@@ -3,10 +3,11 @@ name = "python-template-repo"
 version = "0.1.0"
 description = ""
 authors = [
-    {name = "Maximilian Jugl", email = "Maximilian.Jugl@medizin.uni-leipzig.de"}
+    {name = "Alexander Röhl", email = "alexander.roehl@uni-tuebingen.de"},
+    {name = "David Hieber", email = "david.hieber@uni-tuebingen.de"}
 ]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = "^3.9"
 dependencies = [
 ]
 license = "Apache-2.0"
@@ -18,6 +19,7 @@ packages = [{ include = "project" }]
 pytest = ">=8.3.0"
 ruff = ">=0.9.0"
 pre-commit = ">=4.0.0"
+flame = {git = "https://github.com/PrivateAIM/python-sdk.git", branch = "main"}
 
 [tool.ruff]
 line-length = 120
