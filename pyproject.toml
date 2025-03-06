@@ -1,12 +1,12 @@
 [tool.poetry]
-name = "flame"
+name = "patterns"
 version = "0.1.0"
 description = ""
 authors = ["Alexander Röhl <alexander.roehl@uni-tuebingen.de>",
     "David Hieber <david.hieber@uni-tuebingen.de>"]
 readme = "README.md"
 license = "Apache-2.0"
-packages = [{ include = "patterns" },{ include = "utils" }]
+packages = [{ include = "patterns" }]
 
 [tool.poetry.dependencies]
 python = "^3.9"
