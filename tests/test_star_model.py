@@ -1,4 +1,4 @@
-from flame.patterns.star import StarModel, StarAnalyzer, StarAggregator
+from patterns.star import StarModel, StarAnalyzer, StarAggregator
 
 
 class MyAnalyzer(StarAnalyzer):

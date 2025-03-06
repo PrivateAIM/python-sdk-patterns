@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Optional, Type, Literal, Union
 
-from flamesdk import FlameCoreSDK
+from flame import FlameCoreSDK
 from patterns.star.aggregator_client import Aggregator
 from patterns.star.analyzer_client import Analyzer
 

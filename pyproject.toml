@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "patterns"
+name = "flame"
 version = "0.1.0"
 description = ""
 authors = ["Alexander Röhl <alexander.roehl@uni-tuebingen.de>",

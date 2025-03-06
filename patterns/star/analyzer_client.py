@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from typing import Any, Optional
 
-from flamesdk import FlameCoreSDK
+from flame import FlameCoreSDK
 from patterns.star.node_base_client import Node
 
 
