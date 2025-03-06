@@ -1,9 +1,9 @@
 from enum import Enum
 from typing import Optional, Type, Literal, Union
 
-from flame import FlameCoreSDK
-from flame.patterns.star.aggregator_client import Aggregator
-from flame.patterns.star.analyzer_client import Analyzer
+from flamesdk import FlameCoreSDK
+from patterns.star.aggregator_client import Aggregator
+from patterns.star.analyzer_client import Analyzer
 
 
 class _ERROR_MESSAGES(Enum):

@@ -153,7 +153,7 @@ testing = ["covdefaults (>=2.3)", "coverage (>=7.6.10)", "diff-cover (>=9.2.1)",
 typing = ["typing-extensions (>=4.12.2) ; python_version < \"3.11\""]
 
 [[package]]
-name = "flame-sdk"
+name = "flamesdk"
 version = "0.1.0"
 description = ""
 optional = false
@@ -171,7 +171,7 @@ uvicorn = "^0.27.1"
 type = "git"
 url = "https://github.com/PrivateAIM/python-sdk.git"
 reference = "main"
-resolved_reference = "25ba222fbf88bcb9f04764dfe23eb9b2cf11c5e1"
+resolved_reference = "0c188353de9064fbf607a480f8ae1eadd60b5d77"
 
 [[package]]
 name = "h11"
@@ -729,4 +729,4 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.9"
-content-hash = "1151a7d7e6a933e02d3263200773fec720836d74cf3f8635ea9f923a8feb58e1"
+content-hash = "2d5e2e59f3254eb547d9e67472c9931a2019c54a1721a6c83de76419325ca857"
