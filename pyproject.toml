@@ -6,7 +6,7 @@ authors = ["Alexander Röhl <alexander.roehl@uni-tuebingen.de>",
     "David Hieber <david.hieber@uni-tuebingen.de>"]
 readme = "README.md"
 license = "Apache-2.0"
-packages = [{ include = "patterns" }]
+packages = [{ include = "flame" }]
 
 [tool.poetry.dependencies]
 python = "^3.9"

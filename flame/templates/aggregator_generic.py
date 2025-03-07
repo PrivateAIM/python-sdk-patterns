@@ -1,5 +1,5 @@
 from typing import Any, Callable, Optional, Union
-from flame.resources.node_config import NodeConfig
+from flamesdk.resources.node_config import NodeConfig
 
 
 class Pattern_Aggregator:

@@ -1,7 +1,7 @@
-from flame import FlameCoreSDK
+from flamesdk import FlameCoreSDK
 
-from patterns.templates.aggregator_generic import Pattern_Aggregator
-from patterns.templates.analyzer_generic import Pattern_Analyzer
+from flame.templates.aggregator_generic import Pattern_Aggregator
+from flame.templates.analyzer_generic import Pattern_Analyzer
 
 
 def main():
