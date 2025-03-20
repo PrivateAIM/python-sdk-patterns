@@ -14,7 +14,7 @@ class Analyzer(Node):
             raise ValueError(f'Attempted to initialize analyzer node with mismatching configuration '
                              f'(expected: node_mode="default", received="{node_config.node_role}").')
 
-        super().__init__(node_config.node_role, flame.get_participant_ids(), node_config.node_role)
+        super().__init__(node_config.node_id, flame.get_participant_ids(), node_config.node_role)
 
     def analyze(self,
                 data: list[Any],
