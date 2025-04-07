@@ -170,8 +170,8 @@ uvicorn = "^0.27.1"
 [package.source]
 type = "git"
 url = "https://github.com/PrivateAIM/python-sdk.git"
-reference = "main"
-resolved_reference = "338b4cee114ebb2b38d148a4a432a9db0f01843e"
+reference = "0.2.1"
+resolved_reference = "a656a8e3e7afd5509a7388f199dc4f19b9746e3b"
 
 [[package]]
 name = "h11"
@@ -744,4 +744,4 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.9"
-content-hash = "2d5e2e59f3254eb547d9e67472c9931a2019c54a1721a6c83de76419325ca857"
+content-hash = "a0c3ec1e83573fdb63814a0152f94c9fa13328e13ce77db9367f2c7e7990fe1f"
