@@ -28,21 +28,21 @@ class StarModel:
         self.flame = FlameCoreSDK()
 
         if self._is_analyzer():
-            print("Analyzer started")
+            self.flame.flame_log("Analyzer started")
             self._start_analyzer(analyzer,
                                  data_type=data_type,
                                  query=query,
                                  simple_analysis=simple_analysis,
                                  analyzer_kwargs=analyzer_kwargs)
         elif self._is_aggregator():
-            print("Aggregator started")
+            self.flame.flame_log("Aggregator started")
             self._start_aggregator(aggregator,
                                    simple_analysis=simple_analysis,
                                    output_type=output_type,
                                    aggregator_kwargs=aggregator_kwargs)
         else:
             raise BrokenPipeError("Has to be either analyzer or aggregator")
-        print("Analysis finished!")
+        self.flame.flame_log("Analysis finished!")
 
     def _is_aggregator(self) -> bool:
         return self.flame.get_role() == 'aggregator'
@@ -75,12 +75,12 @@ class StarModel:
 
                     # Aggregate results
                     agg_res, converged = aggregator.aggregate(list(result_dict.values()), simple_analysis)
-                    print(f"Aggregated results: {str(agg_res)[:100]}")
+                    self.flame.flame_log(f"Aggregated results: {str(agg_res)[:100]}")
 
                     if converged:
-                        print("Submitting final results...", end='')
+                        self.flame.flame_log("Submitting final results...", end='')
                         response = self.flame.submit_final_result(agg_res, output_type)
-                        print(f"success (response={response})")
+                        self.flame.flame_log(f"success (response={response})")
                         self.flame.analysis_finished()  # LOOP BREAK
                     else:
                         # Send aggregated result to analyzers
@@ -113,7 +113,7 @@ class StarModel:
 
                 # Get data
                 data = self._get_data(query=query, data_type=data_type)
-                print(f"Data extracted: {str(data)[:100]}")
+                self.flame.flame_log(f"Data extracted: {str(data)[:100]}")
 
                 agg_res = None
                 converged = False
@@ -140,20 +140,20 @@ class StarModel:
     def _wait_until_partners_ready(self):
         if self._is_analyzer():
             aggregator_id = self.flame.get_aggregator_id()
-            print("Awaiting contact with aggregator node...")
+            self.flame.flame_log("Awaiting contact with aggregator node...")
             ready_check_dict = self.flame.ready_check([aggregator_id])
 
             if not ready_check_dict[aggregator_id]:
                 raise BrokenPipeError("Could not contact aggregator")
 
-            print("Awaiting contact with aggregator node...success")
+            self.flame.flame_log("Awaiting contact with aggregator node...success")
         else:
             analyzer_ids = self.flame.get_participant_ids()
-            print("Awaiting contact with analyzer nodes...")
+            self.flame.flame_log("Awaiting contact with analyzer nodes...")
             ready_check_dict = self.flame.ready_check(analyzer_ids)
             if not all(ready_check_dict.values()):
                 raise BrokenPipeError("Could not contact all analyzers")
-            print("Awaiting contact with analyzer nodes...success")
+            self.flame.flame_log("Awaiting contact with analyzer nodes...success")
 
     def _get_data(self,
                   data_type: Literal['fhir', 's3'],
