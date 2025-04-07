@@ -3,8 +3,7 @@ from typing import Optional, Type, Literal, Union
 from flamesdk import FlameCoreSDK
 from flame.star.aggregator_client import Aggregator
 from flame.star.analyzer_client import Analyzer
-from flame.star.star_model import StarModel , _ERROR_MESSAGES
-
+from flame.star.star_model import StarModel, _ERROR_MESSAGES
 
 
 class StarLocalDPModel(StarModel):
