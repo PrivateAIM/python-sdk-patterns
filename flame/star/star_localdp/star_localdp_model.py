@@ -9,6 +9,9 @@ from flame.star.star_model import StarModel, _ERROR_MESSAGES
 class StarLocalDPModel(StarModel):
     flame: FlameCoreSDK
 
+    epsilon: Optional[float]
+    sensitivity: Optional[float]
+
     def __init__(self,
                  analyzer: Type[Analyzer],
                  aggregator: Type[Aggregator],
