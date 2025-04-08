@@ -18,10 +18,18 @@ class Aggregator(Node):
     def aggregate(self, node_results: list[Any], simple_analysis: bool = True) -> tuple[Any, bool]:
         result = self.aggregation_method(node_results)
 
+        if not simple_analysis:
+            if not self.latest_result:
+                converged = False
+            else:
+                converged = self.has_converged(result, self.latest_result, self.num_iterations)
+        else:
+            converged = True
+
         self.latest_result = result
         self.num_iterations += 1
 
-        return self.latest_result, simple_analysis or self.has_converged(result, self.latest_result, self.num_iterations)
+        return self.latest_result, converged
 
     @abstractmethod
     def aggregation_method(self, analysis_results: list[Any]) -> Any:
