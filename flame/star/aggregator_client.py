@@ -8,12 +8,10 @@ from flame.star.node_base_client import Node
 class Aggregator(Node):
 
     def __init__(self, flame: FlameCoreSDK) -> None:
-        node_config = flame.config
-
-        if node_config.node_role != 'aggregator':
+        if flame.config.node_role != 'aggregator':
             raise ValueError(f'Attempted to initialize aggregator node with mismatching configuration '
-                             f'(expected: node_role="aggregator", received="{node_config.node_role}").')
-        super().__init__(node_config.node_id, flame.get_participant_ids(), node_config.node_role)
+                             f'(expected: node_role="aggregator", received="{flame.config.node_role}").')
+        super().__init__(flame)
 
     def aggregate(self, node_results: list[Any], simple_analysis: bool = True) -> tuple[Any, bool]:
         result = self.aggregation_method(node_results)

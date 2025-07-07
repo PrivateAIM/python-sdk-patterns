@@ -8,13 +8,10 @@ from flame.star.node_base_client import Node
 class Analyzer(Node):
 
     def __init__(self, flame: FlameCoreSDK) -> None:
-        node_config = flame.config
-
-        if node_config.node_role != 'default':
+        if flame.config.node_role != 'default':
             raise ValueError(f'Attempted to initialize analyzer node with mismatching configuration '
-                             f'(expected: node_mode="default", received="{node_config.node_role}").')
-
-        super().__init__(node_config.node_id, flame.get_participant_ids(), node_config.node_role)
+                             f'(expected: node_mode="default", received="{flame.config.node_role}").')
+        super().__init__(flame)
 
     def analyze(self,
                 data: list[Any],
