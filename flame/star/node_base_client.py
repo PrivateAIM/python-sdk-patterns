@@ -25,7 +25,7 @@ class Node:
         self.role = self.flame.config.node_role
         self.status = NodeStatus.STARTED.value
         self.latest_result = None
-        self.partner_node_ids = self.flame.get_particitpant_ids()
+        self.partner_node_ids = self.flame.get_participant_ids()
         self.num_iterations: int = 0
 
     def node_finished(self):
