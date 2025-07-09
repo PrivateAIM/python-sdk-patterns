@@ -11,7 +11,7 @@ class NodeStatus(Enum):
 
 class Node:
     id: str
-    role = Literal["default", "aggregator"]
+    role: Literal["default", "aggregator"]
     status: str
     latest_result: Optional[Any]
     partner_node_ids: list[str]
