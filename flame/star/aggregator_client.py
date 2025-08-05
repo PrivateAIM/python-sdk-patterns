@@ -17,7 +17,7 @@ class Aggregator(Node):
         result = self.aggregation_method(node_results)
 
         if not simple_analysis:
-            if not self.latest_result:
+            if self.latest_result is None:
                 converged = False
             else:
                 converged = self.has_converged(result, self.latest_result, self.num_iterations)
