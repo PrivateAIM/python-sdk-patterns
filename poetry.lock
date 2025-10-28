@@ -167,7 +167,7 @@ uvicorn = "^0.27.1"
 type = "git"
 url = "https://github.com/PrivateAIM/python-sdk.git"
 reference = "compont-conection-failer-test"
-resolved_reference = "ae07e56b1db7acd3637477756c6aed74ad3a9209"
+resolved_reference = "cd6368be5ced24bc3734b219d91daa1e8e0eb715"
 
 [[package]]
 name = "h11"
