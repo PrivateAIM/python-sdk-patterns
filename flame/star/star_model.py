@@ -170,3 +170,4 @@ class StarModel:
 
     def _converged(self) -> bool:
         return self.flame.config.finished
+
