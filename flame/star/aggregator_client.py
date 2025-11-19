@@ -32,7 +32,7 @@ class Aggregator(Node):
     @abstractmethod
     def aggregation_method(self, analysis_results: list[Any]) -> Any:
         """
-        This method will be used to aggregate the data. It has to be overridden.
+        This method will be used to aggregate the data. It has to be overwritten.
         :return: aggregated_result
         """
         pass
@@ -40,7 +40,7 @@ class Aggregator(Node):
     @abstractmethod
     def has_converged(self, result: Any, last_result: Optional[Any], num_iterations: int) -> bool:
         """
-        This method will be used to check if the aggregator has converged. It has to be overridden.
+        This method will be used to check if the aggregator has converged. It has to be overwritten.
         :return: converged
         """
         pass

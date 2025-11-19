@@ -27,7 +27,7 @@ class Analyzer(Node):
     @abstractmethod
     def analysis_method(self, data: list[Any], aggregator_results: Optional[Any]) -> Any:
         """
-        This method will be used to analyze the data. It has to be overridden.
+        This method will be used to analyze the data. It has to be overwritten.
 
         The parameter data will be formatted like this:
             [list element for every registered data source
