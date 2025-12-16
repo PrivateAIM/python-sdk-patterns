@@ -1,0 +1,224 @@
+import sys
+from httpx import AsyncClient
+from io import StringIO
+from typing import Any, Literal, Optional, Union
+
+
+_REQUIRED_KWARGS = ['node_id', 'participant_ids', 'role']
+
+
+class MockFlameCoreSDK:
+    message_broker: dict[str, list[dict[str, Any]]] = {}
+    final_results_storage: Optional[Any] = None
+
+    def __init__(self, test_kwargs):
+        self.sanity_check(test_kwargs)
+
+        self._test_kwargs = test_kwargs
+        self.progress = 0
+        self.incoming_message_queue = []
+        self.outgoing_message_queue = []
+
+        node_id = self.get_id()
+        if node_id not in self.message_broker:
+            self.message_broker[node_id] = []
+
+    def sanity_check(self, test_kwargs) -> None:
+        required_kwargs_check = all([k in test_kwargs.keys() for k in _REQUIRED_KWARGS])
+        data_given = 'fhir_data' in test_kwargs.keys() or 's3_data' in test_kwargs.keys()
+        if not required_kwargs_check:
+            raise ValueError("test_kwargs must include 'node_id', 'participant_ids', and 'role' keys.")
+        if not data_given:
+            raise ValueError("test_kwargs must include either 'fhir_data' or 's3_data' key with corresponding data.")
+
+    ########################################General##################################################
+    def get_aggregator_id(self) -> Optional[str]:
+        return self._test_kwargs.get('aggregator', 'node3')
+
+    def get_participants(self) -> list[dict[str, str]]:
+        return self._test_kwargs.get('participants', [{'id': 'node1'}, {'id': 'node2'}])
+
+    def get_participant_ids(self) -> list[str]:
+        return self._test_kwargs.get('participant_ids', ['node1', 'node2'])
+
+    def get_analysis_id(self) -> str:
+        return self._test_kwargs.get('analysis_id', 'analysis_123')
+
+    def get_project_id(self) -> str:
+        return self._test_kwargs.get('project_id', 'project_123')
+
+    def get_id(self) -> str:
+        return self._test_kwargs.get('node_id', 'node_123')
+
+    def get_role(self) -> str:
+        return self._test_kwargs.get('role', 'default')
+
+    def analysis_finished(self) -> bool:
+        pass
+
+    def ready_check(self,
+                    nodes: list[str] = 'all',
+                    attempt_interval: int = 30,
+                    timeout: Optional[int] = None) -> dict[str, bool]:
+        if nodes == 'all':
+            nodes = self.get_participants
+        return {node: True for node in nodes}
+
+
+    def flame_log(self,
+                  msg: Union[str, bytes],
+                  sep: str = ' ',
+                  end: str = '\n',
+                  file: object = None,
+                  log_type: str = 'normal',
+                  suppress_head: bool = False,
+                  halt_submission: bool = False) -> None:
+        print(msg, end=end)
+
+    def declare_log_types(self, new_log_types: dict[str, str]) -> None:
+        pass
+
+    def get_progress(self) -> int:
+        return self.progress
+
+    def set_progress(self, progress: Union[int, float]) -> None:
+        if isinstance(progress, float):
+            progress = int(progress)
+        if not (0 <= progress <= 100):
+            self.flame_log(msg=f"Invalid progress: {progress} (should be a numeric value between 0 and 100).")
+        elif self.progress > progress:
+            self.flame_log(msg=f"Progress value needs to be higher to current progress (i.e. only register progress, "
+                               f"if actual progress has been made).")
+        else:
+            self.progress = progress
+
+    def fhir_to_csv(self,
+                    fhir_data: dict[str, Any],
+                    col_key_seq: str,
+                    value_key_seq: str,
+                    input_resource: str,
+                    row_key_seq: Optional[str] = None,
+                    row_id_filters: Optional[list[str]] = None,
+                    col_id_filters: Optional[list[str]] = None,
+                    row_col_name: str = '',
+                    separator: str = ',',
+                    output_type: Literal["file", "dict"] = "file"
+                    ) -> Optional[Union[StringIO, dict[Any, dict[Any, Any]]]]:
+        return None
+
+
+    ########################################Message Broker Client####################################
+    def send_message(self,
+                     receivers: list[str],
+                     message_category: str,
+                     message: dict,
+                     max_attempts: int = 1,
+                     timeout: Optional[int] = None,
+                     attempt_timeout: int = 10) -> tuple[list[str], list[str]]:
+        pass
+
+    def await_messages(self,
+                       senders: list[str],
+                       message_category: str,
+                       message_id: Optional[str] = None,
+                       timeout: Optional[int] = None) -> dict[str, Optional[list[str]]]:
+        pass
+
+    def get_messages(self, status: Literal['unread', 'read'] = 'unread') -> list[str]:
+        pass
+
+    def delete_messages(self, message_ids: list[str]) -> int:
+        pass
+
+    def clear_messages(self, status: Literal["read", "unread", "all"] = "read",
+                       min_age: Optional[int] = None) -> int:
+        pass
+
+    def send_message_and_wait_for_responses(self,
+                                            receivers: list[str],
+                                            message_category: str,
+                                            message: dict,
+                                            max_attempts: int = 1,
+                                            timeout: Optional[int] = None,
+                                            attempt_timeout: int = 10) -> dict[str, Optional[list[str]]]:
+        pass
+
+    ########################################Storage Client###########################################
+    def submit_final_result(self,
+                            result: Any, output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                            local_dp: Optional[dict] = None) -> dict[str, str]:
+        self.final_results_storage = result
+
+    def save_intermediate_data(self,
+                               data: Any,
+                               location: Literal["local", "global"],
+                               remote_node_ids: Optional[list[str]] = None,
+                               tag: Optional[str] = None) -> Union[dict[str, dict[str, str]], dict[str, str]]:
+        pass
+
+    def get_intermediate_data(self,
+                              location: Literal["local", "global"],
+                              id: Optional[str] = None,
+                              tag: Optional[str] = None,
+                              tag_option: Optional[Literal["all", "last","first"]] = "all",
+                              sender_node_id: Optional[str] = None) -> Any:
+        pass
+
+    def send_intermediate_data(self,
+                               receivers: list[str],
+                               data: Any,
+                               message_category: str = "intermediate_data",
+                               max_attempts: int = 1,
+                               timeout: Optional[int] = None,
+                               attempt_timeout: int = 10,
+                               encrypted: bool = False) -> tuple[list[str], list[str]]:
+
+        sender = self.get_id()
+        for r in receivers:
+            if r not in self.message_broker.keys():
+                self.message_broker[r] = []
+            inbox = self.message_broker[r]
+            inbox.append({
+                "category": message_category,
+                "sender": sender,
+                "data": data,
+            })
+            self.message_broker[r] = inbox
+        return receivers, []
+
+    def await_intermediate_data(self,
+                                senders: list[str],
+                                message_category: str = "intermediate_data",
+                                timeout: Optional[int] = None) -> dict[str, Any]:
+        node_id = self.get_id()
+
+        inbox = self.message_broker.get(node_id, [])
+
+        remaining_msgs = []
+        latest_results = {}
+        for msg in inbox:
+            if (msg["category"] == message_category) and (msg["sender"] in senders):
+                latest_results[msg["sender"]] = msg["data"]
+            else:
+                remaining_msgs.append(msg)
+
+        # retain only unconsumed messages
+        self.message_broker[node_id] = remaining_msgs
+
+        return latest_results
+
+    def get_local_tags(self, filter: Optional[str] = None) -> list[str]:
+        pass
+
+    ########################################Data Client#######################################
+    def get_data_client(self, data_id: str) -> Optional[AsyncClient]:
+        pass
+
+    def get_data_sources(self) -> Optional[list[str]]:
+        pass
+
+    def get_fhir_data(self, fhir_queries: Optional[list[str]] = None) -> Optional[list[Union[dict[str, dict], dict]]]:
+        return self._test_kwargs['fhir_data']
+
+    def get_s3_data(self, s3_keys: Optional[list[str]] = None) -> Optional[list[Union[dict[str, str], str]]]:
+        return self._test_kwargs['s3_data']

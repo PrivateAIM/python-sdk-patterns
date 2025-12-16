@@ -1,28 +1,26 @@
 from abc import abstractmethod
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from flamesdk import FlameCoreSDK
 from flame.star.node_base_client import Node
+from flame.utils.mock_flame_core import MockFlameCoreSDK
 
 
 class Analyzer(Node):
 
-    def __init__(self, flame: FlameCoreSDK) -> None:
-        if flame.config.node_role != 'default':
-            raise ValueError(f'Attempted to initialize analyzer node with mismatching configuration '
-                             f'(expected: node_mode="default", received="{flame.config.node_role}").')
+    def __init__(self, flame: Union[FlameCoreSDK, MockFlameCoreSDK]) -> None:
         super().__init__(flame)
+        if self.role != 'default':
+            raise ValueError(f'Attempted to initialize analyzer node with mismatching configuration '
+                             f'(expected: node_mode="default", received="{self.role}").')
 
-    def analyze(self,
-                data: list[Any],
-                aggregator_results: Optional[str],
-                simple_analysis: bool = True) -> tuple[Any, bool]:
-        result = self.analysis_method(data, aggregator_results)
+    def analyze(self, data: list[Any]) -> Any:
+        result = self.analysis_method(data, self.latest_result)
 
         self.latest_result = result
         self.num_iterations += 1
 
-        return self.latest_result, simple_analysis
+        return self.latest_result
 
     @abstractmethod
     def analysis_method(self, data: list[Any], aggregator_results: Optional[Any]) -> Any:
