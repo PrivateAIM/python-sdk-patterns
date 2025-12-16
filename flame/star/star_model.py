@@ -30,28 +30,26 @@ class StarModel:
                  test_mode: bool = False,
                  test_kwargs: Optional[dict] = None) -> None:
         if not test_mode:
-            if FlameCoreSDK is None:
-                raise ModuleNotFoundError("flamesdk is required when test_mode is False")
             self.flame = FlameCoreSDK()
         else:
             self.flame = MockFlameCoreSDK(test_kwargs=test_kwargs)
 
         if self._is_analyzer():
-            self.flame.flame_log("Analyzer started")
+            self.flame.flame_log("Analyzer started", log_type='info')
             self._start_analyzer(analyzer,
                                  data_type=data_type,
                                  query=query,
                                  simple_analysis=simple_analysis,
                                  analyzer_kwargs=analyzer_kwargs)
         elif self._is_aggregator():
-            self.flame.flame_log("Aggregator started")
+            self.flame.flame_log("Aggregator started", log_type='info')
             self._start_aggregator(aggregator,
                                    simple_analysis=simple_analysis,
                                    output_type=output_type,
                                    aggregator_kwargs=aggregator_kwargs)
         else:
             raise BrokenPipeError("Has to be either analyzer or aggregator")
-        self.flame.flame_log("Analysis finished!")
+        self.flame.flame_log("Analysis finished!", log_type='info')
 
     def _is_aggregator(self) -> bool:
         return self.flame.get_role() == 'aggregator'
@@ -83,12 +81,11 @@ class StarModel:
 
                 # Aggregate results
                 agg_res, converged = aggregator.aggregate(list(result_dict.values()), simple_analysis)
-                self.flame.flame_log(f"Aggregated results: {str(agg_res)[:100]}")
 
                 if converged:
-                    self.flame.flame_log("Submitting final results...", end='')
+                    self.flame.flame_log("Submitting final results...", log_type='info', end='')
                     response = self.flame.submit_final_result(agg_res, output_type)
-                    self.flame.flame_log(f"success (response={response})")
+                    self.flame.flame_log(f"success (response={response})", log_type='info')
                     self.flame.analysis_finished()
                     aggregator.node_finished()      # LOOP BREAK
                 else:
@@ -118,7 +115,7 @@ class StarModel:
 
             # Get data
             self._get_data(query=query, data_type=data_type)
-            self.flame.flame_log(f"Data extracted: {str(self.data)[:100]}")
+            self.flame.flame_log(f"Data extracted: {str(self.data)[:100]}", log_type='info')
 
             agg_res = None
             # Check converged status on Hub
@@ -139,20 +136,20 @@ class StarModel:
     def _wait_until_partners_ready(self):
         if self._is_analyzer():
             aggregator_id = self.flame.get_aggregator_id()
-            self.flame.flame_log("Awaiting contact with aggregator node...")
+            self.flame.flame_log("Awaiting contact with aggregator node...", log_type='info')
             ready_check_dict = self.flame.ready_check([aggregator_id])
 
             if not ready_check_dict[aggregator_id]:
                 raise BrokenPipeError("Could not contact aggregator")
 
-            self.flame.flame_log("Awaiting contact with aggregator node...success")
+            self.flame.flame_log("Awaiting contact with aggregator node...success", log_type='info')
         else:
             analyzer_ids = self.flame.get_participant_ids()
-            self.flame.flame_log("Awaiting contact with analyzer nodes...")
+            self.flame.flame_log("Awaiting contact with analyzer nodes...", log_type='info')
             ready_check_dict = self.flame.ready_check(analyzer_ids)
             if not all(ready_check_dict.values()):
                 raise BrokenPipeError("Could not contact all analyzers")
-            self.flame.flame_log("Awaiting contact with analyzer nodes...success")
+            self.flame.flame_log("Awaiting contact with analyzer nodes...success", log_type='info')
 
     def _get_data(self,
                   data_type: Literal['fhir', 's3'],

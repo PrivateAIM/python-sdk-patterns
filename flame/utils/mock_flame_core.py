@@ -1,10 +1,32 @@
-import sys
+from enum import Enum
 from httpx import AsyncClient
 from io import StringIO
 from typing import Any, Literal, Optional, Union
 
 
 _REQUIRED_KWARGS = ['node_id', 'participant_ids', 'role']
+
+
+class HUB_LOG_LITERALS(Enum):
+    info_log = 'info'
+    notice_message = 'notice'
+    debug_log = 'debug'
+    warning_log = 'warn'
+    alert_log = 'alert'
+    emergency_log = 'emerg'
+    error_code = 'error'
+    critical_error_code = 'crit'
+
+
+_LOG_TYPE_LITERALS = {'info': (HUB_LOG_LITERALS.info_log.value, 36),
+                      'normal': (HUB_LOG_LITERALS.info_log.value, 39),
+                      'notice': (HUB_LOG_LITERALS.notice_message.value, 32),
+                      'debug': (HUB_LOG_LITERALS.debug_log.value, 90),
+                      'warning': (HUB_LOG_LITERALS.warning_log.value, 33),
+                      'alert': (HUB_LOG_LITERALS.alert_log.value, 91),
+                      'emergency': (HUB_LOG_LITERALS.emergency_log.value, 35),
+                      'error': (HUB_LOG_LITERALS.error_code.value, 31),
+                      'critical-error': (HUB_LOG_LITERALS.critical_error_code.value, 41)}
 
 
 class MockFlameCoreSDK:
@@ -73,7 +95,12 @@ class MockFlameCoreSDK:
                   log_type: str = 'normal',
                   suppress_head: bool = False,
                   halt_submission: bool = False) -> None:
-        print(msg, end=end)
+        if log_type in _LOG_TYPE_LITERALS.keys():
+            color = str(_LOG_TYPE_LITERALS[log_type][1])
+        else:
+            color = str(_LOG_TYPE_LITERALS['normal'][1])
+        print(f'\033[{color}m{msg}\033[0m', end=end)
+
 
     def declare_log_types(self, new_log_types: dict[str, str]) -> None:
         pass
