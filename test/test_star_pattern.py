@@ -1,35 +1,36 @@
-import math
 from typing import Any, Optional
 from flame.star import  StarAnalyzer, StarAggregator
-from flame.star.test_star_model import test_star_model
+from flame.star.star_model_tester import StarModelTester
 
 
 class MyAnalyzer(StarAnalyzer):
-    def __init__(self, flame, latest_result=None):
+    def __init__(self, flame):
         super().__init__(flame)
-        self.latest_result = latest_result
 
     def analysis_method(self, data, aggregator_results):
         self.flame.flame_log(f"aggregator_results in MyAnalyzer: {aggregator_results}", log_type='debug')
         analysis_result = sum(data) / len(data) \
             if aggregator_results is None \
-            else (sum(data) / len(data) + aggregator_results) / 2
+            else (sum(data) / len(data) + aggregator_results) + 1 / 2
         self.flame.flame_log(f"MyAnalysis result ({self.id}): {analysis_result}", log_type='notice')
         return analysis_result
 
 
 class MyAggregator(StarAggregator):
-    def __init__(self, flame, latest_result=None):
+    def __init__(self, flame):
         super().__init__(flame)
-        self.latest_result = latest_result
 
     def aggregation_method(self, analysis_results: list[Any]) -> Any:
+        self.flame.flame_log(f"analysis_results in MyAggregator: {analysis_results}", log_type='notice')
         result = sum(analysis_results) / len(analysis_results)
         self.flame.flame_log(f"MyAggregator result ({self.id}): {result}", log_type='notice')
         return result
 
     def has_converged(self, result: Any, last_result: Optional[Any]) -> bool:
-        return math.fabs(result - last_result) < 0.01
+        #return math.fabs(result - last_result) < 0.01
+        self.flame.flame_log(f"Last result: {last_result}, Current result: {result}", log_type="notice")
+        self.flame.flame_log(f"Checking convergence at iteration {self.num_iterations}", log_type="notice")
+        return self.num_iterations >= 5  # Limit to 5 iterations for testing
 
 
 if __name__ == "__main__":
@@ -37,9 +38,8 @@ if __name__ == "__main__":
     data_2 = [5, 6, 7, 8]
     data_splits = [data_1, data_2]
 
-    test_star_model(data_splits,                # TODO: Insert your data fragments in a list
-                    MyAnalyzer,                 # TODO: Replace with your custom Analyzer class
-                    MyAggregator,               # TODO: Replace with your custom Aggregator class
-                    's3',               # TODO: Specify data type ('fhir' or 's3')
+    StarModelTester(data_splits=data_splits,                # TODO: Insert your data fragments in a list
+                    analyzer=MyAnalyzer,                 # TODO: Replace with your custom Analyzer class
+                    aggregator=MyAggregator,               # TODO: Replace with your custom Aggregator class
+                    data_type='s3',               # TODO: Specify data type ('fhir' or 's3')
                     simple_analysis=False)
-

@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional, Type, Literal, Union
+from typing import Optional, Type, Literal, Union, Any
 
 from flamesdk import FlameCoreSDK
 from flame.star.aggregator_client import Aggregator
@@ -33,6 +33,8 @@ class StarModel:
             self.flame = FlameCoreSDK()
         else:
             self.flame = MockFlameCoreSDK(test_kwargs=test_kwargs)
+        test_node_kwargs = {'num_iterations': test_kwargs['num_iterations'],
+                            'latest_result': test_kwargs['num_iterations']} if test_mode else None
 
         if self._is_analyzer():
             self.flame.flame_log("Analyzer started", log_type='info')
@@ -40,13 +42,15 @@ class StarModel:
                                  data_type=data_type,
                                  query=query,
                                  simple_analysis=simple_analysis,
-                                 analyzer_kwargs=analyzer_kwargs)
+                                 analyzer_kwargs=analyzer_kwargs,
+                                 test_node_kwargs=test_node_kwargs)
         elif self._is_aggregator():
             self.flame.flame_log("Aggregator started", log_type='info')
             self._start_aggregator(aggregator,
                                    simple_analysis=simple_analysis,
                                    output_type=output_type,
-                                   aggregator_kwargs=aggregator_kwargs)
+                                   aggregator_kwargs=aggregator_kwargs,
+                                   test_node_kwargs=test_node_kwargs)
         else:
             raise BrokenPipeError("Has to be either analyzer or aggregator")
         self.flame.flame_log("Analysis finished!", log_type='info')
@@ -61,13 +65,18 @@ class StarModel:
                           aggregator: Type[Aggregator],
                           simple_analysis: bool = True,
                           output_type: Literal['str', 'bytes', 'pickle'] = 'str',
-                          aggregator_kwargs: Optional[dict] = None) -> None:
+                          aggregator_kwargs: Optional[dict] = None,
+                          test_node_kwargs: Optional[dict[str, Any]] = None) -> None:
         if issubclass(aggregator, Aggregator):
             # init custom aggregator subclass
             if aggregator_kwargs is None:
                 aggregator = aggregator(flame=self.flame)
             else:
                 aggregator = aggregator(flame=self.flame, **aggregator_kwargs)
+
+            if test_node_kwargs is not None:
+                aggregator.set_num_iterations(test_node_kwargs['num_iterations'])
+                aggregator.set_latest_result(test_node_kwargs['latest_result'])
 
             # Ready Check
             self._wait_until_partners_ready()
@@ -100,13 +109,18 @@ class StarModel:
                         data_type: Literal['fhir', 's3'],
                         query: Optional[Union[str, list[str]]] = None,
                         simple_analysis: bool = True,
-                        analyzer_kwargs: Optional[dict] = None) -> None:
+                        analyzer_kwargs: Optional[dict] = None,
+                        test_node_kwargs: Optional[dict[str, Any]] = None) -> None:
         if issubclass(analyzer, Analyzer):
             # init custom analyzer subclass
             if analyzer_kwargs is None:
                 analyzer = analyzer(flame=self.flame)
             else:
                 analyzer = analyzer(flame=self.flame, **analyzer_kwargs)
+
+            if test_node_kwargs is not None:
+                analyzer.set_num_iterations(test_node_kwargs['num_iterations'])
+                analyzer.set_latest_result(test_node_kwargs['latest_result'])
 
             aggregator_id = self.flame.get_aggregator_id()
 
