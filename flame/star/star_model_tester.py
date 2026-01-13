@@ -113,6 +113,6 @@ class StarModelTester:
             else:
                 with open(result_filepath, 'wb') as f:
                     f.write(result)
-            print(f"Final result (simple analysis) written to {result_filepath}")
+            print(f"Final result written to {result_filepath}")
         else:
-            print(f"Final result (simple analysis): {result}")
+            print(f"Final result: {result}")

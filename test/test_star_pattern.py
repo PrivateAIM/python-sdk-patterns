@@ -8,7 +8,7 @@ class MyAnalyzer(StarAnalyzer):
         super().__init__(flame)
 
     def analysis_method(self, data, aggregator_results):
-        self.flame.flame_log(f"aggregator_results in MyAnalyzer: {aggregator_results}", log_type='debug')
+        self.flame.flame_log(f"\tAggregator results in MyAnalyzer: {aggregator_results}", log_type='debug')
         analysis_result = sum(data) / len(data) \
             if aggregator_results is None \
             else (sum(data) / len(data) + aggregator_results) + 1 / 2
@@ -21,15 +21,14 @@ class MyAggregator(StarAggregator):
         super().__init__(flame)
 
     def aggregation_method(self, analysis_results: list[Any]) -> Any:
-        self.flame.flame_log(f"analysis_results in MyAggregator: {analysis_results}", log_type='notice')
+        self.flame.flame_log(f"\tAnalysis results in MyAggregator: {analysis_results}", log_type='notice')
         result = sum(analysis_results) / len(analysis_results)
         self.flame.flame_log(f"MyAggregator result ({self.id}): {result}", log_type='notice')
         return result
 
     def has_converged(self, result: Any, last_result: Optional[Any]) -> bool:
-        #return math.fabs(result - last_result) < 0.01
-        self.flame.flame_log(f"Last result: {last_result}, Current result: {result}", log_type="notice")
-        self.flame.flame_log(f"Checking convergence at iteration {self.num_iterations}", log_type="notice")
+        self.flame.flame_log(f"\tLast result: {last_result}, Current result: {result}", log_type="notice")
+        self.flame.flame_log(f"\tChecking convergence at iteration {self.num_iterations}", log_type="notice")
         return self.num_iterations >= 5  # Limit to 5 iterations for testing
 
 
