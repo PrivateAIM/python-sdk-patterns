@@ -11,7 +11,7 @@ packages = [{ include = "flame" }]
 [tool.poetry.dependencies]
 python = "^3.9"
 #flamesdk = {git = "https://github.com/PrivateAIM/python-sdk.git", tag = "0.2.1"}
-flamesdk = {git = "https://github.com/PrivateAIM/python-sdk.git", branch = "canary"}
+flamesdk = {git = "https://github.com/PrivateAIM/python-sdk.git", branch = "request_timeout"}
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8.3.0"
