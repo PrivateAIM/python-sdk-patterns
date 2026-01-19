@@ -211,7 +211,7 @@ uvicorn = "^0.27.1"
 type = "git"
 url = "https://github.com/PrivateAIM/python-sdk.git"
 reference = "request_timeout"
-resolved_reference = "43fed920f50a97d2273243b6f65d7f5624be48e9"
+resolved_reference = "3a1c425cd9c4f47041494911126f734454bf7dce"
 
 [[package]]
 name = "h11"
