@@ -1,26 +1,27 @@
 from abc import abstractmethod
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from flamesdk import FlameCoreSDK
 from flame.star.node_base_client import Node
+from flame.utils.mock_flame_core import MockFlameCoreSDK
 
 
 class Aggregator(Node):
 
-    def __init__(self, flame: FlameCoreSDK) -> None:
-        if flame.config.node_role != 'aggregator':
-            raise ValueError(f'Attempted to initialize aggregator node with mismatching configuration '
-                             f'(expected: node_role="aggregator", received="{flame.config.node_role}").')
+    def __init__(self, flame: Union[FlameCoreSDK, MockFlameCoreSDK]) -> None:
         super().__init__(flame)
+        if self.role != 'aggregator':
+            raise ValueError(f'Attempted to initialize aggregator node with mismatching configuration '
+                             f'(expected: node_role="aggregator", received="{self.role}").')
 
     def aggregate(self, node_results: list[Any], simple_analysis: bool = True) -> tuple[Any, bool]:
         result = self.aggregation_method(node_results)
 
         if not simple_analysis:
-            if not self.latest_result:
-                converged = False
+            if self.num_iterations != 0:
+                converged = self.has_converged(result, self.latest_result)
             else:
-                converged = self.has_converged(result, self.latest_result, self.num_iterations)
+                converged = False
         else:
             converged = True
 
@@ -38,7 +39,7 @@ class Aggregator(Node):
         pass
 
     @abstractmethod
-    def has_converged(self, result: Any, last_result: Optional[Any], num_iterations: int) -> bool:
+    def has_converged(self, result: Any, last_result: Optional[Any]) -> bool:
         """
         This method will be used to check if the aggregator has converged. It has to be overwritten.
         :return: converged
