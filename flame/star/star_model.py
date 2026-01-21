@@ -58,6 +58,8 @@ class StarModel:
             raise BrokenPipeError("Has to be either analyzer or aggregator")
         if not self.test_mode:
             self.flame.flame_log("Analysis finished!", log_type='info')
+            while True:
+                pass  # keep the node alive to allow for orderly shutdown
 
     def _is_aggregator(self) -> bool:
         return self.flame.get_role() == 'aggregator'

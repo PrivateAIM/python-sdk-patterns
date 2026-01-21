@@ -24,8 +24,6 @@ class Node:
 
     def node_finished(self):
         self.finished = True
-        self.flame._flame_logger.set_runstatus('finished')
-        self.flame._node_finished()
 
     def set_num_iterations(self, num_iterations: int) -> None:
         """
