@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "flame"
-version = "0.4.0"
+version = "0.4.1"
 description = ""
 authors = ["Alexander Röhl <alexander.roehl@uni-tuebingen.de>", "David Hieber <david.hieber@uni-tuebingen.de>"]
 readme = "README.md"
@@ -9,7 +9,7 @@ packages = [{ include = "flame" }]
 
 [tool.poetry.dependencies]
 python = "^3.9"
-flamesdk = {git = "https://github.com/PrivateAIM/python-sdk.git", tag = "0.3.1"}
+flamesdk = {git = "https://github.com/PrivateAIM/python-sdk.git", tag = "0.3.1" }
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8.3.0"

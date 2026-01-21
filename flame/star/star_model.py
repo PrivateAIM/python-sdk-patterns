@@ -58,6 +58,8 @@ class StarModel:
             raise BrokenPipeError("Has to be either analyzer or aggregator")
         if not self.test_mode:
             self.flame.flame_log("Analysis finished!", log_type='info')
+            while True:
+                pass  # keep the node alive to allow for orderly shutdown
 
     def _is_aggregator(self) -> bool:
         return self.flame.get_role() == 'aggregator'
@@ -136,7 +138,6 @@ class StarModel:
             self._get_data(query=query, data_type=data_type)
             self.flame.flame_log(f"\tData extracted: {str(self.data)[:100]}", log_type='info')
 
-            agg_res = None
             # Check converged status on Hub
             while not analyzer.finished:  # (**)
                 # Analyze data
