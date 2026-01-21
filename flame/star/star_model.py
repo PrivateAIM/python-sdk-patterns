@@ -138,7 +138,6 @@ class StarModel:
             self._get_data(query=query, data_type=data_type)
             self.flame.flame_log(f"\tData extracted: {str(self.data)[:100]}", log_type='info')
 
-            agg_res = None
             # Check converged status on Hub
             while not analyzer.finished:  # (**)
                 # Analyze data
