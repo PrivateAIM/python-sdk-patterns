@@ -210,8 +210,8 @@ uvicorn = "^0.27.1"
 [package.source]
 type = "git"
 url = "https://github.com/PrivateAIM/python-sdk.git"
-reference = "canary"
-resolved_reference = "e2f5fa8ea0052ad2277d5d26d4bea2c20e6e9091"
+reference = "test_fast_start"
+resolved_reference = "1fa8290d680e686766ca4c552b76683d2702a459"
 
 [[package]]
 name = "h11"
@@ -953,4 +953,4 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.9"
-content-hash = "87be9c9850de340236210c78c7e4ca3d5b528bd61a5426714b992258ab77e7ee"
+content-hash = "b76783deafbdeda6ce0c940c5663dda54612198c2e95213e302ee24045be2f51"
