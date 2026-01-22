@@ -1,7 +1,7 @@
 import pickle
 from typing import Any, Type, Literal, Optional, Union
 
-from flame.star import StarModel, StarAnalyzer, StarAggregator
+from flame.star import StarModel, StarLocalDPModel, StarAnalyzer, StarAggregator
 from flame.utils.mock_flame_core import MockFlameCoreSDK
 
 
@@ -22,6 +22,8 @@ class StarModelTester:
                  output_type: Literal['str', 'bytes', 'pickle'] = 'str',
                  analyzer_kwargs: Optional[dict] = None,
                  aggregator_kwargs: Optional[dict] = None,
+                 epsilon: Optional[float] = None,
+                 sensitivity: Optional[float] = None,
                  result_filepath: str = None) -> None:
         self.agg_index = len(data_splits)
         while not self.converged:
@@ -34,7 +36,9 @@ class StarModelTester:
                                                      query,
                                                      output_type,
                                                      analyzer_kwargs,
-                                                     aggregator_kwargs)
+                                                     aggregator_kwargs,
+                                                     epsilon,
+                                                     sensitivity)
             if simple_analysis:
                 self.write_result(result, output_type, result_filepath)
                 self.converged = True
@@ -56,7 +60,9 @@ class StarModelTester:
                        query: Optional[Union[str, list[str]]],
                        output_type: Literal['str', 'bytes', 'pickle'],
                        analyzer_kwargs: Optional[dict] = None,
-                       aggregator_kwargs: Optional[dict] = None) -> tuple[Any, dict[str, Any]]:
+                       aggregator_kwargs: Optional[dict] = None,
+                       epsilon: Optional[float] = None,
+                       sensitivity: Optional[float] = None,) -> tuple[Any, dict[str, Any]]:
         sim_nodes = {}
         agg_kwargs = None
         for i in range(len(data_splits) + 1):
@@ -73,16 +79,17 @@ class StarModelTester:
             if i == self.agg_index:
                 agg_kwargs = test_kwargs
 
-            sim_nodes[node_id] = StarModel(analyzer,
-                                           aggregator,
-                                           data_type,
-                                           query,
-                                           True,
-                                           output_type,
-                                           analyzer_kwargs,
-                                           aggregator_kwargs,
-                                           test_mode=True,
-                                           test_kwargs=test_kwargs)
+            pattern = StarModel if (epsilon is None) or (sensitivity is None) else StarLocalDPModel
+            sim_nodes[node_id] = pattern(analyzer,
+                                         aggregator,
+                                         data_type,
+                                         query,
+                                         True,
+                                         output_type,
+                                         analyzer_kwargs,
+                                         aggregator_kwargs,
+                                         test_mode=True,
+                                         test_kwargs=test_kwargs)
         return sim_nodes[f"node_{self.agg_index}"].flame.final_results_storage, agg_kwargs
 
     @staticmethod

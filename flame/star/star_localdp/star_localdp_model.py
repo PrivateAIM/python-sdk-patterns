@@ -25,10 +25,10 @@ class StarLocalDPModel(StarModel):
                  output_type: Literal['str', 'bytes', 'pickle'] = 'str',
                  analyzer_kwargs: Optional[dict] = None,
                  aggregator_kwargs: Optional[dict] = None,
-                 test_mode: bool = False,
-                 test_kwargs: Optional[dict] = None,
                  epsilon: Optional[float] = None,
-                 sensitivity: Optional[float] = None) -> None:
+                 sensitivity: Optional[float] = None,
+                 test_mode: bool = False,
+                 test_kwargs: Optional[dict] = None) -> None:
         super().__init__(analyzer=analyzer,
                          aggregator=aggregator,
                          data_type=data_type,
