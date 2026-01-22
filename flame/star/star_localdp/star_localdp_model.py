@@ -29,6 +29,8 @@ class StarLocalDPModel(StarModel):
                  sensitivity: Optional[float] = None,
                  test_mode: bool = False,
                  test_kwargs: Optional[dict] = None) -> None:
+        self.epsilon = epsilon
+        self.sensitivity = sensitivity
         super().__init__(analyzer=analyzer,
                          aggregator=aggregator,
                          data_type=data_type,
@@ -39,8 +41,6 @@ class StarLocalDPModel(StarModel):
                          aggregator_kwargs=aggregator_kwargs,
                          test_mode=test_mode,
                          test_kwargs=test_kwargs)
-        self.epsilon = epsilon
-        self.sensitivity = sensitivity
 
     def _start_aggregator(self,
                           aggregator: Type[Aggregator],
@@ -70,7 +70,7 @@ class StarLocalDPModel(StarModel):
                 result_dict = self.flame.await_intermediate_data(analyzers)
 
                 # Aggregate results
-                agg_res, converged = aggregator.aggregate(list(result_dict.values()), simple_analysis)
+                agg_res, converged, delta_crit = aggregator.aggregate(list(result_dict.values()), simple_analysis)
                 self.flame.flame_log(f"Aggregated results: {str(agg_res)[:100]}")
 
                 if converged:
@@ -78,12 +78,17 @@ class StarLocalDPModel(StarModel):
                         self.flame.flame_log("Submitting final results using differential privacy...",
                                              log_type='info',
                                              end='')
-                    if (self.epsilon is not None) and (self.sensitivity is not None):
+                    if delta_crit and (self.epsilon is not None) and (self.sensitivity is not None):
                         local_dp = {"epsilon": self.epsilon, "sensitivity": self.sensitivity}
                     else:
                         local_dp = None
+                    if self.test_mode and (local_dp is not None):
+                        self.flame.flame_log(f"\tTest mode: Would apply local DP with epsilon={local_dp['epsilon']} "
+                                             f"and sensitivity={local_dp['sensitivity']}",
+                                             log_type='info')
                     response = self.flame.submit_final_result(agg_res, output_type, local_dp=local_dp)
                     if not self.test_mode:
+                        self.has_converged(agg_res, aggregator.latest_result)
                         self.flame.flame_log(f"success (response={response})", log_type='info')
                     self.flame.analysis_finished()
                     aggregator.node_finished()  # LOOP BREAK

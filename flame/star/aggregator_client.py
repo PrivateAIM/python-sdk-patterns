@@ -14,21 +14,19 @@ class Aggregator(Node):
             raise ValueError(f'Attempted to initialize aggregator node with mismatching configuration '
                              f'(expected: node_role="aggregator", received="{self.role}").')
 
-    def aggregate(self, node_results: list[Any], simple_analysis: bool = True) -> tuple[Any, bool]:
+    def aggregate(self, node_results: list[Any], simple_analysis: bool = True) -> tuple[Any, bool, bool]:
         result = self.aggregation_method(node_results)
 
+        delta_criteria = self.has_converged(result, self.latest_result) if self.num_iterations != 0 else False
         if not simple_analysis:
-            if self.num_iterations != 0:
-                converged = self.has_converged(result, self.latest_result)
-            else:
-                converged = False
+            converged = delta_criteria
         else:
             converged = True
 
         self.latest_result = result
         self.num_iterations += 1
 
-        return self.latest_result, converged
+        return self.latest_result, converged, delta_criteria
 
     @abstractmethod
     def aggregation_method(self, analysis_results: list[Any]) -> Any:

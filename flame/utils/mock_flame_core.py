@@ -3,6 +3,7 @@ from httpx import AsyncClient
 from io import StringIO
 from typing import Any, Literal, Optional, Union
 
+from opendp.mod import enable_features
 from opendp.domains import atom_domain
 from opendp.measurements import make_laplace
 from opendp.metrics import absolute_distance
@@ -184,6 +185,7 @@ class MockFlameCoreSDK:
                             local_dp: Optional[dict] = None) -> dict[str, str]:
         if local_dp is not None:
             if type(result) in [int, float]:
+                enable_features("contrib")
                 scale = local_dp['sensitivity'] / local_dp['epsilon']  # Laplace scale parameter
                 laplace_mech = make_laplace(input_domain=atom_domain(T=float),
                                             input_metric=absolute_distance(T=float),

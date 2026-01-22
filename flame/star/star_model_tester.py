@@ -62,7 +62,7 @@ class StarModelTester:
                        analyzer_kwargs: Optional[dict] = None,
                        aggregator_kwargs: Optional[dict] = None,
                        epsilon: Optional[float] = None,
-                       sensitivity: Optional[float] = None,) -> tuple[Any, dict[str, Any]]:
+                       sensitivity: Optional[float] = None) -> tuple[Any, dict[str, Any]]:
         sim_nodes = {}
         agg_kwargs = None
         for i in range(len(data_splits) + 1):
@@ -79,17 +79,30 @@ class StarModelTester:
             if i == self.agg_index:
                 agg_kwargs = test_kwargs
 
-            pattern = StarModel if (epsilon is None) or (sensitivity is None) else StarLocalDPModel
-            sim_nodes[node_id] = pattern(analyzer,
-                                         aggregator,
-                                         data_type,
-                                         query,
-                                         True,
-                                         output_type,
-                                         analyzer_kwargs,
-                                         aggregator_kwargs,
-                                         test_mode=True,
-                                         test_kwargs=test_kwargs)
+            if (epsilon is None) or (sensitivity is None):
+                sim_nodes[node_id] = StarModel(analyzer,
+                                               aggregator,
+                                               data_type,
+                                               query,
+                                               True,
+                                               output_type,
+                                               analyzer_kwargs,
+                                               aggregator_kwargs,
+                                               test_mode=True,
+                                               test_kwargs=test_kwargs)
+            else:
+                sim_nodes[node_id] = StarLocalDPModel(analyzer,
+                                                      aggregator,
+                                                      data_type,
+                                                      query,
+                                                      True,
+                                                      output_type,
+                                                      analyzer_kwargs,
+                                                      aggregator_kwargs,
+                                                      epsilon=epsilon,
+                                                      sensitivity=sensitivity,
+                                                      test_mode=True,
+                                                      test_kwargs=test_kwargs)
         return sim_nodes[f"node_{self.agg_index}"].flame.final_results_storage, agg_kwargs
 
     @staticmethod
