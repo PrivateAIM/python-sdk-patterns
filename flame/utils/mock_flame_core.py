@@ -3,6 +3,10 @@ from httpx import AsyncClient
 from io import StringIO
 from typing import Any, Literal, Optional, Union
 
+from opendp.domains import atom_domain
+from opendp.measurements import make_laplace
+from opendp.metrics import absolute_distance
+
 
 _REQUIRED_KWARGS = ['node_id', 'participant_ids', 'role']
 
@@ -175,8 +179,19 @@ class MockFlameCoreSDK:
 
     ########################################Storage Client###########################################
     def submit_final_result(self,
-                            result: Any, output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                            result: Any,
+                            output_type: Literal['str', 'bytes', 'pickle'] = 'str',
                             local_dp: Optional[dict] = None) -> dict[str, str]:
+        if local_dp is not None:
+            if type(result) in [int, float]:
+                scale = local_dp['sensitivity'] / local_dp['epsilon']  # Laplace scale parameter
+                laplace_mech = make_laplace(input_domain=atom_domain(T=float),
+                                            input_metric=absolute_distance(T=float),
+                                            scale=scale)
+                result = laplace_mech(float(result))
+            else:
+                self.flame_log("Given result type is not supported for local DP -> DP step will be skipped.",
+                               log_type='warning')
         self.final_results_storage = result
 
     def save_intermediate_data(self,

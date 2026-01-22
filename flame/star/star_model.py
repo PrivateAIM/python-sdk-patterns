@@ -16,6 +16,7 @@ class _ERROR_MESSAGES(Enum):
 
 class StarModel:
     flame: Union[FlameCoreSDK, MockFlameCoreSDK]
+
     data: Optional[list[dict[str, Any]]] = None
     test_mode: bool = False
 
@@ -31,12 +32,13 @@ class StarModel:
                  test_mode: bool = False,
                  test_kwargs: Optional[dict] = None) -> None:
         self.test_mode = test_mode
-        if not self.test_mode:
-            self.flame = FlameCoreSDK()
-        else:
+        if self.test_mode:
             self.flame = MockFlameCoreSDK(test_kwargs=test_kwargs)
-        test_node_kwargs = {'num_iterations': test_kwargs['num_iterations'],
-                            'latest_result': test_kwargs['latest_result']} if self.test_mode else None
+            test_node_kwargs = {'num_iterations': test_kwargs['num_iterations'],
+                                'latest_result': test_kwargs['latest_result']}
+        else:
+            self.flame = FlameCoreSDK()
+            test_node_kwargs = None
 
         if self._is_analyzer():
             self.flame.flame_log(f"Analyzer {test_kwargs['node_id'] + ' ' if self.test_mode else ''}started",
