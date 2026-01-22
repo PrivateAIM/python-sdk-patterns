@@ -210,8 +210,8 @@ uvicorn = "^0.27.1"
 [package.source]
 type = "git"
 url = "https://github.com/PrivateAIM/python-sdk.git"
-reference = "0.3.1"
-resolved_reference = "cfb31c21cf531201e7b6e11f08b1e4b5db386c25"
+reference = "request_timeout"
+resolved_reference = "3a1c425cd9c4f47041494911126f734454bf7dce"
 
 [[package]]
 name = "h11"
@@ -360,14 +360,14 @@ files = [
 
 [[package]]
 name = "packaging"
-version = "25.0"
+version = "26.0"
 description = "Core utilities for Python packages"
 optional = false
 python-versions = ">=3.8"
 groups = ["dev"]
 files = [
-    {file = "packaging-25.0-py3-none-any.whl", hash = "sha256:29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484"},
-    {file = "packaging-25.0.tar.gz", hash = "sha256:d443872c98d677bf60f6a1f2f8c1cb748e8fe762d2bf9d3148b5599295b0fc4f"},
+    {file = "packaging-26.0-py3-none-any.whl", hash = "sha256:b36f1fef9334a5588b4166f8bcd26a14e521f2b55e6b9de3aaa80d3ff7a37529"},
+    {file = "packaging-26.0.tar.gz", hash = "sha256:00243ae351a257117b6a241061796684b084ed1c516a08c48a3f7e147a9d80b4"},
 ]
 
 [[package]]
@@ -953,4 +953,4 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.9"
-content-hash = "e89c01282a61cc81b44df28aada7058145f4bc4afdc672770932db92928bfc99"
+content-hash = "e450c534f71d1314ff3f430c79de93a4f0eb8972278e974e342c7d2d22a8e3a7"
