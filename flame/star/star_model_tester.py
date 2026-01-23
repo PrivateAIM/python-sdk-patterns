@@ -29,21 +29,21 @@ class StarModelTester:
         while not self.converged:
             print(f"--- Starting Iteration {self.num_iterations} ---")
 
-            result, agg_kwargs = self.simulate_nodes(data_splits,
-                                                     analyzer,
-                                                     aggregator,
-                                                     data_type,
-                                                     query,
-                                                     output_type,
-                                                     analyzer_kwargs,
-                                                     aggregator_kwargs,
-                                                     epsilon,
-                                                     sensitivity)
+            result, test_agg_kwargs = self.simulate_nodes(data_splits,
+                                                          analyzer,
+                                                          aggregator,
+                                                          data_type,
+                                                          query,
+                                                          output_type,
+                                                          analyzer_kwargs,
+                                                          aggregator_kwargs,
+                                                          epsilon,
+                                                          sensitivity)
             if simple_analysis:
                 self.write_result(result, output_type, result_filepath)
                 self.converged = True
             else:
-                self.converged = self.check_convergence(aggregator, agg_kwargs, result)
+                self.converged = self.check_convergence(aggregator, test_agg_kwargs, result, aggregator_kwargs)
                 if self.converged:
                     self.write_result(result, output_type, result_filepath)
                 else:
@@ -107,13 +107,18 @@ class StarModelTester:
 
     @staticmethod
     def check_convergence(aggregator: Type[StarAggregator],
-                          agg_kwargs: dict[str, Any],
-                          result: Any) -> bool:
-        if all(k in agg_kwargs.keys() for k in ('num_iterations', 'latest_result')):
-            agg = aggregator(MockFlameCoreSDK(test_kwargs=agg_kwargs))
-            agg.set_num_iterations(agg_kwargs['num_iterations'])
+                          test_agg_kwargs: dict[str, Any],
+                          result: Any,
+                          aggregator_kwargs: Optional[dict] = None) -> bool:
+        if all(k in test_agg_kwargs.keys() for k in ('num_iterations', 'latest_result')):
+            if aggregator_kwargs is None:
+                agg = aggregator(MockFlameCoreSDK(test_kwargs=test_agg_kwargs))
+            else:
+                agg = aggregator(MockFlameCoreSDK(test_kwargs=test_agg_kwargs), **aggregator_kwargs)
+            agg.set_num_iterations(test_agg_kwargs['num_iterations'])
+
             if agg.num_iterations != 0:
-                return agg.has_converged(result=result, last_result=agg_kwargs['latest_result'])
+                return agg.has_converged(result=result, last_result=test_agg_kwargs['latest_result'])
             else:
                 return False
         else:
