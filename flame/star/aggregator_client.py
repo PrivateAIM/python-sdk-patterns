@@ -17,9 +17,9 @@ class Aggregator(Node):
     def aggregate(self, node_results: list[Any], simple_analysis: bool = True) -> tuple[Any, bool, bool]:
         result = self.aggregation_method(node_results)
 
-        delta_criteria = self.has_converged(result, self.latest_result) if self.num_iterations != 0 else False
+        delta_criteria = self.has_converged(result, self.latest_result)
         if not simple_analysis:
-            converged = delta_criteria
+            converged = delta_criteria if self.num_iterations != 0 else False
         else:
             converged = True
 

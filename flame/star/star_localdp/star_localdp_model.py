@@ -88,7 +88,6 @@ class StarLocalDPModel(StarModel):
                                              log_type='info')
                     response = self.flame.submit_final_result(agg_res, output_type, local_dp=local_dp)
                     if not self.test_mode:
-                        self.has_converged(agg_res, aggregator.latest_result)
                         self.flame.flame_log(f"success (response={response})", log_type='info')
                     self.flame.analysis_finished()
                     aggregator.node_finished()  # LOOP BREAK
