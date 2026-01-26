@@ -1,6 +1,5 @@
 from typing import Any, Optional
-from flame.star import  StarAnalyzer, StarAggregator
-from flame.star.star_model_tester import StarModelTester
+from flame.star import StarModelTester, StarAnalyzer, StarAggregator
 
 
 class MyAnalyzer(StarAnalyzer):
