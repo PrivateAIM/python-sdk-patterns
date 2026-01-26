@@ -1,4 +1,4 @@
-from flame.star import StarModel, StarAnalyzer, StarAggregator
+from flame.star import StarLocalDPModel, StarAnalyzer, StarAggregator
 
 
 class MyAnalyzer(StarAnalyzer):
@@ -71,13 +71,15 @@ def main():
     - Specifies the type of data and queries to execute.
     - Configures analysis parameters like iteration behavior and output format.
     """
-    StarModel(
+    StarLocalDPModel(
         analyzer=MyAnalyzer,             # Custom analyzer class (must inherit from StarAnalyzer)
         aggregator=MyAggregator,         # Custom aggregator class (must inherit from StarAggregator)
         data_type='fhir',                # Type of data source ('fhir' or 's3')
         query='Patient?_summary=count',  # Query or list of queries to retrieve data
         simple_analysis=True,            # True for single-iteration; False for multi-iterative analysis
         output_type='str',               # Output format for the final result ('str', 'bytes', or 'pickle')
+        epsilon=1.0,                     # Privacy budget for differential privacy
+        sensitivity=1.0,                 # Sensitivity parameter for differential privacy
         analyzer_kwargs=None,            # Additional keyword arguments for the custom analyzer constructor (i.e. MyAnalyzer)
         aggregator_kwargs=None           # Additional keyword arguments for the custom aggregator constructor (i.e. MyAggregator)
     )
