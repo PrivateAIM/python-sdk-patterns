@@ -228,8 +228,8 @@ uvicorn = "^0.27.1"
 [package.source]
 type = "git"
 url = "https://github.com/PrivateAIM/python-sdk.git"
-reference = "request_timeout"
-resolved_reference = "3a1c425cd9c4f47041494911126f734454bf7dce"
+reference = "multiple-final-results"
+resolved_reference = "0d977042aea7c17c2abfe6f2915862ab79ed2085"
 
 [[package]]
 name = "h11"
@@ -1124,4 +1124,4 @@ dev = ["pytest", "setuptools"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.9"
-content-hash = "63eafd1fc21fbcf62209945ad5dacc25c9b18c6419cfb78a9e5684212decccb0"
+content-hash = "7daaed2bde5115a891e6bc8efdc551ebc6d6ffd40f5692b4647a25e4408e29ff"
