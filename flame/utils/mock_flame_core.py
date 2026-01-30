@@ -180,28 +180,11 @@ class MockFlameCoreSDK:
 
     ########################################Storage Client###########################################
     def submit_final_result(self,
-                            result: Union[Any, list[Any]],
+                            result: Any,
                             output_type: Literal['str', 'bytes', 'pickle'] = 'str',
-                            local_dp: Optional[dict] = None) -> Union[dict[str, str], list[dict[str, str]]]:
-        # Handle list of results
-        if isinstance(result, list) and local_dp is not None:
-            processed_results = []
-            for r in result:
-                if type(r) in [int, float]:
-                    enable_features("contrib")
-                    scale = local_dp['sensitivity'] / local_dp['epsilon']  # Laplace scale parameter
-                    laplace_mech = make_laplace(input_domain=atom_domain(T=float),
-                                                input_metric=absolute_distance(T=float),
-                                                scale=scale)
-                    processed_results.append(laplace_mech(float(r)))
-                else:
-                    self.flame_log("Given result type is not supported for local DP -> DP step will be skipped.",
-                                   log_type='warning')
-                    processed_results.append(r)
-            self.final_results_storage = processed_results
-            return [{"status": "success"} for _ in processed_results]
-        # Handle single result
-        elif local_dp is not None:
+                            multiple_results: bool = False,
+                            local_dp: Optional[dict] = None) -> dict[str, str]:
+        if local_dp is not None:
             if type(result) in [int, float]:
                 enable_features("contrib")
                 scale = local_dp['sensitivity'] / local_dp['epsilon']  # Laplace scale parameter
@@ -212,14 +195,7 @@ class MockFlameCoreSDK:
             else:
                 self.flame_log("Given result type is not supported for local DP -> DP step will be skipped.",
                                log_type='warning')
-
         self.final_results_storage = result
-
-        # Return list of dicts if result is a list, single dict otherwise
-        if isinstance(result, list):
-            return [{"status": "success"} for _ in result]
-        else:
-            return {"status": "success"}
 
     def save_intermediate_data(self,
                                data: Any,

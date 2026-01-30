@@ -27,6 +27,7 @@ class StarModel:
                  query: Optional[Union[str, list[str]]] = None,
                  simple_analysis: bool = True,
                  output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                 multiple_results: bool = False,
                  analyzer_kwargs: Optional[dict] = None,
                  aggregator_kwargs: Optional[dict] = None,
                  test_mode: bool = False,
@@ -54,6 +55,7 @@ class StarModel:
             self._start_aggregator(aggregator,
                                    simple_analysis=simple_analysis,
                                    output_type=output_type,
+                                   multiple_results=multiple_results,
                                    aggregator_kwargs=aggregator_kwargs,
                                    test_node_kwargs=test_node_kwargs)
         else:
@@ -73,6 +75,7 @@ class StarModel:
                           aggregator: Type[Aggregator],
                           simple_analysis: bool = True,
                           output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                          multiple_results: bool = False,
                           aggregator_kwargs: Optional[dict] = None,
                           test_node_kwargs: Optional[dict[str, Any]] = None) -> None:
         if issubclass(aggregator, Aggregator):
@@ -102,7 +105,7 @@ class StarModel:
                 if converged:
                     if not self.test_mode:
                         self.flame.flame_log("Submitting final results...", log_type='info', end='')
-                    response = self.flame.submit_final_result(agg_res, output_type)
+                    response = self.flame.submit_final_result(agg_res, output_type, multiple_results)
                     if not self.test_mode:
                         self.flame.flame_log(f"success (response={response})", log_type='info')
                     self.flame.analysis_finished()

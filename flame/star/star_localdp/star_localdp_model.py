@@ -23,6 +23,7 @@ class StarLocalDPModel(StarModel):
                  query: Optional[Union[str, list[str]]] = None,
                  simple_analysis: bool = True,
                  output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                 multiple_results: bool = False,
                  analyzer_kwargs: Optional[dict] = None,
                  aggregator_kwargs: Optional[dict] = None,
                  epsilon: Optional[float] = None,
@@ -37,6 +38,7 @@ class StarLocalDPModel(StarModel):
                          query=query,
                          simple_analysis=simple_analysis,
                          output_type=output_type,
+                         multiple_results=multiple_results,
                          analyzer_kwargs=analyzer_kwargs,
                          aggregator_kwargs=aggregator_kwargs,
                          test_mode=test_mode,
@@ -46,6 +48,7 @@ class StarLocalDPModel(StarModel):
                           aggregator: Type[Aggregator],
                           simple_analysis: bool = True,
                           output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                          multiple_results: bool = False,
                           aggregator_kwargs: Optional[dict] = None,
                           test_node_kwargs: Optional[dict[str, Any]] = None) -> None:
         if issubclass(aggregator, Aggregator):
@@ -86,7 +89,7 @@ class StarLocalDPModel(StarModel):
                         self.flame.flame_log(f"\tTest mode: Would apply local DP with epsilon={local_dp['epsilon']} "
                                              f"and sensitivity={local_dp['sensitivity']}",
                                              log_type='info')
-                    response = self.flame.submit_final_result(agg_res, output_type, local_dp=local_dp)
+                    response = self.flame.submit_final_result(agg_res, output_type, multiple_results, local_dp=local_dp)
                     if not self.test_mode:
                         self.flame.flame_log(f"success (response={response})", log_type='info')
                     self.flame.analysis_finished()
