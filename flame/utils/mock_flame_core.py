@@ -83,6 +83,13 @@ class MockFlameCoreSDK:
     def get_role(self) -> str:
         return self._test_kwargs.get('role', 'default')
 
+    def node_has_data(self) -> bool:
+        """
+        Returns whether the node has access to data via DataAPI.
+        Used for distinguishing between analyzer nodes (with data) and proxy nodes (without data).
+        """
+        return self._test_kwargs.get('has_data', True)
+
     def analysis_finished(self) -> bool:
         pass
 

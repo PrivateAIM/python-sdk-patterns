@@ -9,7 +9,7 @@ packages = [{ include = "flame" }]
 
 [tool.poetry.dependencies]
 python = "^3.9"
-flamesdk = {git = "https://github.com/PrivateAIM/python-sdk.git",  branch = "multiple-final-results"}
+flamesdk = {git = "https://github.com/PrivateAIM/python-sdk.git",  branch = "proxy-nodes"}
 opendp = ">=0.12.1,<0.13.0"
 
 [tool.poetry.group.dev.dependencies]
