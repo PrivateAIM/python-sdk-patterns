@@ -216,7 +216,7 @@ class ProxyModel:
                     return await_response[self.flame.get_aggregator_id()][0].body['analyzer_ids']
                 else:
                     raise BrokenPipeError("Could not retrieve assigned analyzers from aggregator")
-                
+
         else: # Aggregator
             # Aggregator needs to contact all nodes
             partner_ids = self.flame.get_participant_ids()
