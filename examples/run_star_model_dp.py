@@ -78,6 +78,7 @@ def main():
         query='Patient?_summary=count',  # Query or list of queries to retrieve data
         simple_analysis=True,            # True for single-iteration; False for multi-iterative analysis
         output_type='str',               # Output format for the final result ('str', 'bytes', or 'pickle')
+        multiple_results=False,          # Can be set to True to return highest iterable-level of results as separate files
         epsilon=1.0,                     # Privacy budget for differential privacy
         sensitivity=1.0,                 # Sensitivity parameter for differential privacy
         analyzer_kwargs=None,            # Additional keyword arguments for the custom analyzer constructor (i.e. MyAnalyzer)

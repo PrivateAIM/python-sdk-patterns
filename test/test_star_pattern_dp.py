@@ -37,9 +37,9 @@ if __name__ == "__main__":
     data_splits = [data_1, data_2]
 
     StarModelTester(data_splits=data_splits,                # TODO: Insert your data fragments in a list
-                    analyzer=MyAnalyzer,                 # TODO: Replace with your custom Analyzer class
-                    aggregator=MyAggregator,               # TODO: Replace with your custom Aggregator class
-                    data_type='s3',               # TODO: Specify data type ('fhir' or 's3')
+                    analyzer=MyAnalyzer,                    # TODO: Replace with your custom Analyzer class
+                    aggregator=MyAggregator,                # TODO: Replace with your custom Aggregator class
+                    data_type='s3',                         # TODO: Specify data type ('fhir' or 's3')
                     simple_analysis=False,
                     epsilon=1,
                     sensitivity=10**0)

@@ -78,6 +78,7 @@ def main():
         query='Patient?_summary=count',  # Query or list of queries to retrieve data
         simple_analysis=True,            # True for single-iteration; False for multi-iterative analysis
         output_type='str',               # Output format for the final result ('str', 'bytes', or 'pickle')
+        multiple_results=False,          # Can be set to True to return highest iterable-level of results as separate files
         analyzer_kwargs=None,            # Additional keyword arguments for the custom analyzer constructor (i.e. MyAnalyzer)
         aggregator_kwargs=None           # Additional keyword arguments for the custom aggregator constructor (i.e. MyAggregator)
     )

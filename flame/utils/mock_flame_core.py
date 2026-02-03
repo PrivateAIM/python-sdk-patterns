@@ -182,6 +182,7 @@ class MockFlameCoreSDK:
     def submit_final_result(self,
                             result: Any,
                             output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                            multiple_results: bool = False,
                             local_dp: Optional[dict] = None) -> dict[str, str]:
         if local_dp is not None:
             if type(result) in [int, float]:
