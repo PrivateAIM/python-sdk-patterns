@@ -136,10 +136,15 @@ class StarModelTester:
                      multiple_results: bool = False) -> None:
         if multiple_results:
             if isinstance(result, list) or isinstance(result, tuple):
-                multi_iterable_results = True
+                if isinstance(result_filepath, list) and (len(result_filepath) != len(result)):
+                    print(f"Warning! Inconsistent number of result_filepaths (len={result_filepath}) "
+                          f"and results (len={len(result)}) -> multiple_results will be ignored.")
+                    multi_iterable_results = False
+                else:
+                    multi_iterable_results = True
             else:
                 print(f"Warning! Given multiple_results={multiple_results}, but result is neither of type "
-                      f"'list' nor 'tuple' (found {type(result)} instead) -> multiple_results will be ignored. ")
+                      f"'list' nor 'tuple' (found {type(result)} instead) -> multiple_results will be ignored.")
                 multi_iterable_results = False
         else:
             multi_iterable_results = False
