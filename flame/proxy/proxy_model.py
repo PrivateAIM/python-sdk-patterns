@@ -28,7 +28,7 @@ class ProxyModel:
                  aggregator: Type[Aggregator],
                  num_proxy_nodes: int,
                  data_type: Literal['fhir', 's3'],
-                 query: Optional[Union[str, list[str]]] = None,
+                 query: Optional[Union[str, list[str]]] = [],
                  simple_analysis: bool = True,
                  output_type: Literal['str', 'bytes', 'pickle'] = 'str',
                  multiple_results: bool = False,

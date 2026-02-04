@@ -20,7 +20,7 @@ class StarLocalDPModel(StarModel):
                  analyzer: Type[Analyzer],
                  aggregator: Type[Aggregator],
                  data_type: Literal['fhir', 's3'],
-                 query: Optional[Union[str, list[str]]] = None,
+                 query: Optional[Union[str, list[str]]] = [],
                  simple_analysis: bool = True,
                  output_type: Literal['str', 'bytes', 'pickle'] = 'str',
                  multiple_results: bool = False,
