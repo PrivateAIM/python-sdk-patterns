@@ -228,8 +228,8 @@ uvicorn = "^0.27.1"
 [package.source]
 type = "git"
 url = "https://github.com/PrivateAIM/python-sdk.git"
-reference = "fhir_to_csv"
-resolved_reference = "08d990dcef3d8c68fa9065187177a3017ed499f2"
+reference = "canary"
+resolved_reference = "4f7e17039bded2cc1f37f34bdfe4ae8e326053ce"
 
 [[package]]
 name = "h11"
@@ -1090,4 +1090,4 @@ dev = ["pytest", "setuptools"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.9"
-content-hash = "e70dc910ddbf300fed0a52434f6642ea85768bc9c1b712eab03e76d901335215"
+content-hash = "28d2428b4045d17d3e840142e9b12f8b79ff0b5adf03c2daf0c603fd1451bd03"
