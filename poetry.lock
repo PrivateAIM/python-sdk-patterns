@@ -229,7 +229,7 @@ uvicorn = "^0.27.1"
 type = "git"
 url = "https://github.com/PrivateAIM/python-sdk.git"
 reference = "fhir_to_csv"
-resolved_reference = "d8b574af0007c44115a8cd4e4f6ed698ba837525"
+resolved_reference = "6cd922d2f03acb37115ae52a1126a3fc6c363f67"
 
 [[package]]
 name = "h11"
