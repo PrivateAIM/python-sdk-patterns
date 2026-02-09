@@ -7,6 +7,8 @@ class MyAnalyzer(StarAnalyzer):
         super().__init__(flame)
 
     def analysis_method(self, data, aggregator_results):
+        if aggregator_results:
+            aggregator_results = aggregator_results[0]
         self.flame.flame_log(f"\tAggregator results in MyAnalyzer: {aggregator_results}", log_type='debug')
         analysis_result = sum(data) / len(data) \
             if aggregator_results is None \
@@ -23,7 +25,8 @@ class MyAggregator(StarAggregator):
         self.flame.flame_log(f"\tAnalysis results in MyAggregator: {analysis_results}", log_type='notice')
         result = sum(analysis_results) / len(analysis_results)
         self.flame.flame_log(f"MyAggregator result ({self.id}): {result}", log_type='notice')
-        return result
+        x = 1
+        return result, x
 
     def has_converged(self, result: Any, last_result: Optional[Any]) -> bool:
         self.flame.flame_log(f"\tLast result: {last_result}, Current result: {result}", log_type="notice")
@@ -39,5 +42,6 @@ if __name__ == "__main__":
     StarModelTester(data_splits=data_splits,                # TODO: Insert your data fragments in a list
                     analyzer=MyAnalyzer,                    # TODO: Replace with your custom Analyzer class
                     aggregator=MyAggregator,                # TODO: Replace with your custom Aggregator class
+                    multiple_results=True,                  # TODO: Set to True returning highest iterable-level of results separately
                     data_type='s3',                         # TODO: Specify data type ('fhir' or 's3')
                     simple_analysis=False)

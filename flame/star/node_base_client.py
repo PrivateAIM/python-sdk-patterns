@@ -1,6 +1,7 @@
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, Union
 
 from flamesdk import FlameCoreSDK
+from flame.utils.mock_flame_core import MockFlameCoreSDK
 
 
 class Node:
@@ -10,9 +11,9 @@ class Node:
     latest_result: Optional[Any]
     partner_node_ids: list[str]
     num_iterations: int
-    flame: FlameCoreSDK
+    flame: Union[FlameCoreSDK, MockFlameCoreSDK]
 
-    def __init__(self, flame: FlameCoreSDK):
+    def __init__(self, flame: Union[FlameCoreSDK, MockFlameCoreSDK]):
         self.flame = flame
 
         self.id = self.flame.get_id()
