@@ -7,6 +7,7 @@ from flame.utils.mock_flame_core import MockFlameCoreSDK
 
 
 class Analyzer(Node):
+    proxy_id: str
 
     def __init__(self, flame: Union[FlameCoreSDK, MockFlameCoreSDK]) -> None:
         super().__init__(flame)
@@ -24,6 +25,9 @@ class Analyzer(Node):
         self.num_iterations += 1
 
         return self.latest_result
+
+    def set_proxy_id(self, proxy_id: str) -> None:
+        self.proxy_id = proxy_id
 
     @abstractmethod
     def analysis_method(self, data: list[Any], aggregator_results: Optional[Any]) -> Any:

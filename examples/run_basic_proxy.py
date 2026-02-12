@@ -1,16 +1,15 @@
-from flame.star import StarModel, StarAnalyzer, StarAggregator
+from typing import Any, Optional
+
+from flame.proxy import ProxyModel, ProxyAnalyzer, Proxy, ProxyAggregator
 
 
-class MyAnalyzer(StarAnalyzer):
+class MyAnalyzer(ProxyAnalyzer):
+    proxy_params: Optional[dict[str, tuple[float, float]]] = None
+
     def __init__(self, flame):
-        """
-        Initializes the custom Analyzer node.
-
-        :param flame: Instance of FlameCoreSDK to interact with the FLAME components.
-        """
         super().__init__(flame)  # Connects this analyzer to the FLAME components
 
-    def analysis_method(self, data, aggregator_results):
+    def analysis_method(self, data, aggregator_results) -> Any:
         """
         Performs analysis on the retrieved data from data sources.
 
@@ -29,53 +28,51 @@ class MyAnalyzer(StarAnalyzer):
         return patient_count
 
 
-class MyAggregator(StarAggregator):
+class MyProxy(Proxy):
     def __init__(self, flame):
-        """
-        Initializes the custom Aggregator node.
+        super().__init__(flame)  # Connects this analyzer to the FLAME components
 
-        :param flame: Instance of FlameCoreSDK to interact with the FLAME components.
+    def proxy_aggregation_method(self, analysis_results: list[Any]) -> Any:
         """
-        super().__init__(flame)  # Connects this aggregator to the FLAME components
-
-    def aggregation_method(self, analysis_results):
-        """
-        Aggregates the results received from all analyzer nodes.
+        Aggregates the results received from all analyzer nodes assigned to this proxy.
 
         :param analysis_results: A list of analysis results from each analyzer node.
         :return: The aggregated result (e.g., total patient count across all analyzers).
         """
+        # TODO: Implement your proxy_aggregation method
+        #  in this example we sum up the total patient counts across the analysis nodes assigned to this proxy
+        sub_total_patient_count = sum(analysis_results)
+        return sub_total_patient_count
+
+
+class MyAggregator(ProxyAggregator):
+    def __init__(self, flame):
+        super().__init__(flame)
+
+    def aggregation_method(self, proxy_results):
+        """
+        Aggregates the results received from all proxy nodes (never has direct access to analyzer results).
+
+        :param proxy_results: A list of pre-aggregated results from each proxy node.
+        :return: The aggregated result (e.g., total patient count across all analyzers).
+        """
         # TODO: Implement your aggregation method
-        #  in this example we sum up the total patient counts across all nodes
-        total_patient_count = sum(analysis_results)
+        #  in this example we sum up the total patient counts across all proxy nodes
+        total_patient_count = sum(proxy_results)
         return total_patient_count
 
     def has_converged(self, result, last_result):
-        """
-        Determines if the aggregation process has converged.
-
-        :param result: The current aggregated result.
-        :param last_result: The aggregated result from the previous iteration.
-        :return: True if the aggregation has converged; False to continue iterations.
-        """
-        # TODO (optional): if the parameter 'simple_analysis' in 'StarModel' is set to False,
-        #  this function defines the exit criteria in a multi-iterative analysis (otherwise ignored)
-        return True  # Return True to indicate convergence in this simple analysis
+        return True
 
 
 def main():
-    """
-    Sets up and initiates the distributed analysis using the FLAME components.
-
-    - Defines the custom analyzer and aggregator classes.
-    - Specifies the type of data and queries to execute.
-    - Configures analysis parameters like iteration behavior and output format.
-    """
-    StarModel(
-        analyzer=MyAnalyzer,             # Custom analyzer class (must inherit from StarAnalyzer)
-        aggregator=MyAggregator,         # Custom aggregator class (must inherit from StarAggregator)
+    ProxyModel(
+        analyzer=MyAnalyzer,             # Custom analyzer class
+        proxy=MyProxy,                   # Custom proxy class
+        aggregator=MyAggregator,         # Custom aggregator class
         data_type='fhir',                # Type of data source ('fhir' or 's3')
         query='Patient?_summary=count',  # Query or list of queries to retrieve data
+        num_proxy_nodes=1,               # Number of proxy nodes partaking in this analysis
         simple_analysis=True,            # True for single-iteration; False for multi-iterative analysis
         output_type='str',               # Output format for the final result ('str', 'bytes', or 'pickle')
         multiple_results=False,          # Can be set to True to return highest iterable-level of results as separate files

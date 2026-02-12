@@ -7,8 +7,8 @@ from flame.utils.mock_flame_core import MockFlameCoreSDK
 
 
 class Proxy(Node):
-
-    latest_proxy_result: Optional[Any]
+    analyzer_ids: list[str]
+    latest_aggregator_result: Optional[Any]
 
     def __init__(self, flame: Union[FlameCoreSDK, MockFlameCoreSDK]) -> None:
         super().__init__(flame)
@@ -19,19 +19,25 @@ class Proxy(Node):
         if hasattr(flame, 'node_has_data') and flame.node_has_data():
             raise ValueError(f'Attempted to initialize proxy node on a node with data access.')
 
-    def proxy_aggregate(self, analyzer_results: list[Any]) -> tuple[Any, bool, bool]:
+    def proxy_aggregate(self, analyzer_results: list[Any]) -> Any:
         """
         Aggregate results from assigned analyzer nodes.
 
         :param analyzer_results: List of results from analyzer nodes
-        :return: Tuple of (aggregated_result, converged, delta_criteria)
+        :return: aggregated_result
         """
         result = self.proxy_aggregation_method(analyzer_results)
 
-        self.latest_proxy_result = result
+        self.latest_result = result
         self.num_iterations += 1
 
-        return self.latest_proxy_result
+        return self.latest_result
+
+    def set_analyzer_ids(self, analyzer_ids: list[str]) -> None:
+        self.analyzer_ids = analyzer_ids
+
+    def set_latest_aggregator_result(self, latest_aggregator_result: Optional[Any]) -> None:
+        self.latest_aggregator_result = latest_aggregator_result
 
     @abstractmethod
     def proxy_aggregation_method(self, analysis_results: list[Any]) -> Any:

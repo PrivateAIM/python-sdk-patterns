@@ -1,10 +1,11 @@
 from enum import Enum
-from typing import Optional, Type, Literal, Union, Any
+from typing import Callable, Optional, Type, Literal, Union, Any
 
 from flamesdk import FlameCoreSDK
 from flame.proxy.aggregator_client import Aggregator
 from flame.proxy.analyzer_client import Analyzer
 from flame.proxy.proxy_client import Proxy
+from flame.proxy.mapping_methods import round_robin_analyzer_to_proxy_mapping
 from flame.utils.mock_flame_core import MockFlameCoreSDK
 
 
@@ -26,16 +27,18 @@ class ProxyModel:
                  analyzer: Type[Analyzer],
                  proxy: Type[Proxy],
                  aggregator: Type[Aggregator],
-                 num_proxy_nodes: int,
                  data_type: Literal['fhir', 's3'],
                  query: Optional[Union[str, list[str]]] = [],
+                 num_proxy_nodes: int = 1,
                  simple_analysis: bool = True,
                  output_type: Literal['str', 'bytes', 'pickle'] = 'str',
                  multiple_results: bool = False,
+                 mapping_method: Callable[[list[str], list[str]], dict[str, str]] = round_robin_analyzer_to_proxy_mapping,
                  analyzer_kwargs: Optional[dict] = None,
                  proxy_kwargs: Optional[dict] = None,
                  aggregator_kwargs: Optional[dict] = None) -> None:
         self.num_proxy_nodes = num_proxy_nodes
+        self.mapping_method = mapping_method
         self.flame = FlameCoreSDK(default_requires_data=False)
 
         # Determine node type based on role and data access
@@ -90,7 +93,8 @@ class ProxyModel:
                 analyzer = analyzer(flame=self.flame, **analyzer_kwargs)
 
             # Ready Check
-            proxy_id = self._wait_until_partners_ready()
+            # the return of _wait_until_partners_ready is tuple(list[analyzer_id], list[proxy_id])
+            analyzer.set_proxy_id(self._wait_until_partners_ready()[1][0])
             aggregator_id = self.flame.get_aggregator_id()
 
             # Get data
@@ -102,7 +106,7 @@ class ProxyModel:
                 analyzer_res = analyzer.analyze(data=self.data)
 
                 # Send intermediate result to assigned proxy node
-                self.flame.send_intermediate_data([proxy_id], analyzer_res)
+                self.flame.send_intermediate_data([analyzer.proxy_id], analyzer_res)
 
                 # If not converged await aggregated result from proxy
                 if not simple_analysis:
@@ -124,12 +128,13 @@ class ProxyModel:
                 proxy = proxy(flame=self.flame, **proxy_kwargs)
 
             # Ready Check
-            analyzer_ids = self._wait_until_partners_ready()
+            # the return of _wait_until_partners_ready is tuple(list[analyzer_id], list[proxy_id])
+            proxy.set_analyzer_ids(self._wait_until_partners_ready()[0])
             aggregator_id = self.flame.get_aggregator_id()
 
             while not proxy.finished:
                 # Await intermediate results from assigned analyzer nodes
-                result_dict = self.flame.await_intermediate_data(analyzer_ids)
+                result_dict = self.flame.await_intermediate_data(proxy.analyzer_ids)
 
                 # Aggregate results from analyzers
                 proxy_res = proxy.proxy_aggregate(list(result_dict.values()))
@@ -140,7 +145,7 @@ class ProxyModel:
                 # If not converged, await aggregated result from aggregator
                 if not simple_analysis:
                     aggregator_result = list(self.flame.await_intermediate_data([aggregator_id]).values())
-                    proxy.latest_result = aggregator_result
+                    proxy.set_latest_aggregator_result(aggregator_result)
                 else:
                     proxy.node_finished()
         else:
@@ -160,11 +165,12 @@ class ProxyModel:
                 aggregator = aggregator(flame=self.flame, **aggregator_kwargs)
 
             # Ready Check - wait for all proxy nodes
-            proxy_ids = self._wait_until_partners_ready()
+            # the return of _wait_until_partners_ready is tuple(list[analyzer_id], list[proxy_id])
+            aggregator.set_analyzer_and_proxy_ids(self._wait_until_partners_ready())
 
             while not aggregator.finished:
                 # Await intermediate results from proxy nodes
-                result_dict = self.flame.await_intermediate_data(proxy_ids)
+                result_dict = self.flame.await_intermediate_data(aggregator.proxy_ids)
 
                 # Aggregate results from proxies
                 agg_res, converged, _ = aggregator.aggregate(list(result_dict.values()), simple_analysis)
@@ -180,7 +186,7 @@ class ProxyModel:
         else:
             raise BrokenPipeError(_ERROR_MESSAGES.IS_INCORRECT_CLASS.value)
 
-    def _wait_until_partners_ready(self) -> Union[str, list[str]]:
+    def _wait_until_partners_ready(self) -> tuple[list[str], list[str]]:
         if self._is_analyzer() or self._is_proxy():
             aggregator_id = self.flame.get_aggregator_id()
             ready_check_dict = self.flame.ready_check([aggregator_id])
@@ -226,7 +232,7 @@ class ProxyModel:
 
             return self._surjective_analyzer_to_proxy_mapping(partner_ids)
 
-    def _surjective_analyzer_to_proxy_mapping(self, partner_ids: list[str]) -> list[str]:
+    def _surjective_analyzer_to_proxy_mapping(self, partner_ids: list[str]) -> tuple[list[str], list[str]]:
         response_dict = self.flame.await_messages(partner_ids, message_category='self_roles')
         proxy_ids = []
         analyzer_ids = []
@@ -244,23 +250,12 @@ class ProxyModel:
                 raise BrokenPipeError(f"Number of analyzers ({len(analyzer_ids)}) must be at least equal to "
                                       f"number of proxies ({len(proxy_ids)})")
             # Create round-robin mapping
-            mapping = self._round_robin_analyzer_to_proxy_mapping(proxy_ids, analyzer_ids)
+            mapping = self.mapping_method(proxy_ids, analyzer_ids)
 
             # Inform all analyzers of their proxies, and proxies of their analyzers
             self._inform_analyzer_proxy_mapping(mapping)
 
-        return proxy_ids
-
-    @staticmethod
-    def _round_robin_analyzer_to_proxy_mapping(proxies: list[str], analyzers: list[str]) -> dict[str, str]:
-        proxies.sort()
-        analyzers.sort()
-        mapping = {}
-        for idx, analyzer_id in enumerate(analyzers):
-            # Round-robin distribution
-            proxy_idx = idx % len(proxies)
-            mapping[analyzer_id] = proxies[proxy_idx]
-        return mapping
+        return analyzer_ids, proxy_ids
 
     def _inform_analyzer_proxy_mapping(self, mapping: dict[str, str]) -> None:
         # Inform analyzers of their assigned proxies
@@ -269,7 +264,7 @@ class ProxyModel:
             self.flame.send_message(
                 receivers=[analyzer_id],
                 message_category='assigned_proxy',
-                message={'proxy_id': proxy_id}
+                message={'proxy_id': ([], [proxy_id])}
             )
             if proxy_id not in proxy_to_analyzers.keys():
                 proxy_to_analyzers[proxy_id] = []
@@ -279,7 +274,7 @@ class ProxyModel:
             self.flame.send_message(
                 receivers=[proxy_id],
                 message_category='assigned_analyzers',
-                message={'analyzer_ids': analyzer_ids}
+                message={'analyzer_ids': (analyzer_ids, [])}
             )
 
     def _get_data(self,

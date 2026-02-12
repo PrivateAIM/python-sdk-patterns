@@ -7,6 +7,9 @@ from flame.utils.mock_flame_core import MockFlameCoreSDK
 
 
 class Aggregator(Node):
+    proxy_ids: list[str]
+    analyzer_ids: list[str]
+
 
     def __init__(self, flame: Union[FlameCoreSDK, MockFlameCoreSDK]) -> None:
         super().__init__(flame)
@@ -34,6 +37,9 @@ class Aggregator(Node):
         self.num_iterations += 1
 
         return self.latest_result, converged, delta_criteria
+
+    def set_analyzer_and_proxy_ids(self, sorted_partner_ids: tuple[list[str], list[str]]) -> None:
+        self.analyzer_ids, self.proxy_ids = sorted_partner_ids
 
     @abstractmethod
     def aggregation_method(self, proxy_results: list[Any]) -> Union[Any, list[Any]]:
