@@ -212,7 +212,7 @@ class StarModel:
         if not self.test_mode:
             raise ValueError("This method is only available in test mode.")
 
-        # If not converged await aggregated result, loop back to (**)
+        # Collect intermediate results from the aggregator if this not the first iteration
         if not simple_analysis and num_iterations != 0:
             agg_results = list(self.flame.await_intermediate_data([self.aggregator_id]).values())
             print(f"\tReceived intermediate result from aggregator: {agg_results}")

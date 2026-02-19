@@ -133,7 +133,8 @@ class StarModelTester:
     def check_convergence(aggregator_node: StarModel,
                           num_iterations: int) -> bool:
         if num_iterations != 0:
-            # Every call to aggregator.aggregate() will alrady run a convergence check and sets the node as finished if converged. Therefore, we can directly check the aggregator node's finished flag here.
+            # Every call to aggregator.aggregate() already executes a convergence check and sets the node as finished if converged.
+            # Therefore, we can directly check the aggregator node's finished flag here.
             return aggregator_node.aggregator.finished
         else:
             return False
