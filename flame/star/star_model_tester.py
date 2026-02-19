@@ -11,7 +11,7 @@ class StarModelTester:
     num_iterations: int = 0
     converged: bool = False
 
-    sim_nodes: dict[str, Union[StarModel, StarLocalDPModel]] = {}
+    sim_nodes: dict[str, Union[StarModel, StarLocalDPModel]]
 
     def __init__(self,
                  data_splits: list[Any],
@@ -73,7 +73,9 @@ class StarModelTester:
                        analyzer_kwargs: Optional[dict] = None,
                        aggregator_kwargs: Optional[dict] = None,
                        epsilon: Optional[float] = None,
-                       sensitivity: Optional[float] = None) -> None:      
+                       sensitivity: Optional[float] = None) -> None:
+        self.sim_nodes = {}
+        
         for i in range(len(data_splits) + 1):
             node_id = f"node_{i}"
             test_kwargs = {f'{data_type}_data': data_splits[i] if i < self.agg_index else None,
