@@ -5,12 +5,28 @@ from flame.star import StarModelTester, StarAnalyzer, StarAggregator
 class MyAnalyzer(StarAnalyzer):
     def __init__(self, flame):
         super().__init__(flame)
+        # Custom instance variable — persists across all iterations because nodes are reused
+        self.local_history: list[float] = []
 
     def analysis_method(self, data, aggregator_results):
         self.flame.flame_log(f"\tAggregator results in MyAnalyzer: {aggregator_results}", log_type='debug')
-        analysis_result = sum(data) / len(data) \
-            if aggregator_results is None \
-            else (sum(data) / len(data) + aggregator_results) + 1 / 2
+
+        local_mean = sum(data) / len(data)
+
+        # Append current local mean to history — self.local_history grows each iteration
+        self.local_history.append(local_mean)
+        self.flame.flame_log(
+            f"\tLocal history so far ({self.id}): {self.local_history}", log_type='debug'
+        )
+
+        if aggregator_results is None:
+            analysis_result = local_mean
+        else:
+            # Blend local mean with aggregator feedback, weighted by how many rounds of
+            # history we have accumulated locally
+            weight = min(len(self.local_history) / 10, 0.9)
+            analysis_result = (1 - weight) * aggregator_results + weight * local_mean
+
         self.flame.flame_log(f"MyAnalysis result ({self.id}): {analysis_result}", log_type='notice')
         return analysis_result
 
@@ -40,6 +56,4 @@ if __name__ == "__main__":
                     analyzer=MyAnalyzer,                    # TODO: Replace with your custom Analyzer class
                     aggregator=MyAggregator,                # TODO: Replace with your custom Aggregator class
                     data_type='s3',                         # TODO: Specify data type ('fhir' or 's3')
-                    simple_analysis=False,
-                    epsilon=1,
-                    sensitivity=10**0)
+                    simple_analysis=False)
