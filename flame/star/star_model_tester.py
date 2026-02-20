@@ -2,7 +2,6 @@ import pickle
 from typing import Any, Type, Literal, Optional, Union
 
 from flame.star import StarModel, StarLocalDPModel, StarAnalyzer, StarAggregator
-from flame.utils.mock_flame_core import MockFlameCoreSDK
 
 
 class StarModelTester:
@@ -11,6 +10,8 @@ class StarModelTester:
     latest_result: Optional[Any] = None
     num_iterations: int = 0
     converged: bool = False
+
+    sim_nodes: dict[str, Union[StarModel, StarLocalDPModel]]
 
     def __init__(self,
                  data_splits: list[Any],
@@ -27,25 +28,31 @@ class StarModelTester:
                  sensitivity: Optional[float] = None,
                  result_filepath: Optional[Union[str, list[str]]] = None) -> None:
         self.agg_index = len(data_splits)
+        self.generate_nodes(data_splits,
+                            analyzer,
+                            aggregator,
+                            data_type,
+                            query,
+                            output_type,
+                            multiple_results,
+                            analyzer_kwargs,
+                            aggregator_kwargs,
+                            epsilon,
+                            sensitivity)
+        
+        aggregator_node = self.sim_nodes[f"node_{self.agg_index}"]
+
+        message_broker = None
         while not self.converged:
             print(f"--- Starting Iteration {self.num_iterations} ---")
+            result, message_broker = self.simulate_all_steps(simple_analysis=simple_analysis, output_type=output_type, multiple_results=multiple_results, message_broker=message_broker)
 
-            result, test_agg_kwargs = self.simulate_nodes(data_splits,
-                                                          analyzer,
-                                                          aggregator,
-                                                          data_type,
-                                                          query,
-                                                          output_type,
-                                                          multiple_results,
-                                                          analyzer_kwargs,
-                                                          aggregator_kwargs,
-                                                          epsilon,
-                                                          sensitivity)
             if simple_analysis:
                 self.write_result(result, output_type, result_filepath, multiple_results)
                 self.converged = True
             else:
-                self.converged = self.check_convergence(aggregator, test_agg_kwargs, result, aggregator_kwargs)
+                self.converged = self.check_convergence(aggregator_node=aggregator_node,
+                                                        num_iterations=self.num_iterations)
                 if self.converged:
                     self.write_result(result, output_type, result_filepath, multiple_results)
                 else:
@@ -54,7 +61,8 @@ class StarModelTester:
             print(f"--- Ending Iteration {self.num_iterations} ---\n")
             self.num_iterations += 1
 
-    def simulate_nodes(self,
+
+    def generate_nodes(self,
                        data_splits: list[Any],
                        analyzer: Type[StarAnalyzer],
                        aggregator: Type[StarAggregator],
@@ -65,9 +73,9 @@ class StarModelTester:
                        analyzer_kwargs: Optional[dict] = None,
                        aggregator_kwargs: Optional[dict] = None,
                        epsilon: Optional[float] = None,
-                       sensitivity: Optional[float] = None) -> tuple[Any, dict[str, Any]]:
-        sim_nodes = {}
-        agg_kwargs = None
+                       sensitivity: Optional[float] = None) -> None:
+        self.sim_nodes = {}
+        
         for i in range(len(data_splits) + 1):
             node_id = f"node_{i}"
             test_kwargs = {f'{data_type}_data': data_splits[i] if i < self.agg_index else None,
@@ -79,11 +87,8 @@ class StarModelTester:
                            'project_id': "project_id",
                            'num_iterations': self.num_iterations,
                            'latest_result': self.latest_result}
-            if i == self.agg_index:
-                agg_kwargs = test_kwargs
-
             if (epsilon is None) or (sensitivity is None):
-                sim_nodes[node_id] = StarModel(analyzer,
+                self.sim_nodes[node_id] = StarModel(analyzer,
                                                aggregator,
                                                data_type,
                                                query,
@@ -95,7 +100,7 @@ class StarModelTester:
                                                test_mode=True,
                                                test_kwargs=test_kwargs)
             else:
-                sim_nodes[node_id] = StarLocalDPModel(analyzer,
+                self.sim_nodes[node_id] = StarLocalDPModel(analyzer,
                                                       aggregator,
                                                       data_type,
                                                       query,
@@ -108,24 +113,29 @@ class StarModelTester:
                                                       sensitivity=sensitivity,
                                                       test_mode=True,
                                                       test_kwargs=test_kwargs)
-        return sim_nodes[f"node_{self.agg_index}"].flame.final_results_storage, agg_kwargs
+
+    def simulate_all_steps(self, simple_analysis: bool = True, output_type: Literal['str', 'bytes', 'pickle'] = 'str', multiple_results: bool = False, message_broker: Optional[Any] = None) -> tuple[Any, Any]:
+        for node in self.sim_nodes.values():
+            if message_broker is not None:
+                node.flame.message_broker = message_broker
+
+            if node._is_analyzer():
+                node._step_analyzer_test_mode(simple_analysis=simple_analysis, num_iterations=self.num_iterations)
+            else:
+                node._step_aggregator_test_mode(simple_analysis=simple_analysis, output_type=output_type, multiple_results=multiple_results)
+
+            message_broker = node.flame.message_broker
+        
+        return self.sim_nodes[f"node_{self.agg_index}"].flame.final_results_storage, message_broker
+        
 
     @staticmethod
-    def check_convergence(aggregator: Type[StarAggregator],
-                          test_agg_kwargs: dict[str, Any],
-                          result: Any,
-                          aggregator_kwargs: Optional[dict] = None) -> bool:
-        if all(k in test_agg_kwargs.keys() for k in ('num_iterations', 'latest_result')):
-            if aggregator_kwargs is None:
-                agg = aggregator(MockFlameCoreSDK(test_kwargs=test_agg_kwargs))
-            else:
-                agg = aggregator(MockFlameCoreSDK(test_kwargs=test_agg_kwargs), **aggregator_kwargs)
-            agg.set_num_iterations(test_agg_kwargs['num_iterations'])
-
-            if agg.num_iterations != 0:
-                return agg.has_converged(result=result, last_result=test_agg_kwargs['latest_result'])
-            else:
-                return False
+    def check_convergence(aggregator_node: StarModel,
+                          num_iterations: int) -> bool:
+        if num_iterations != 0:
+            # Every call to aggregator.aggregate() already executes a convergence check and sets the node as finished if converged.
+            # Therefore, we can directly check the aggregator node's finished flag here.
+            return aggregator_node.aggregator.finished
         else:
             return False
 

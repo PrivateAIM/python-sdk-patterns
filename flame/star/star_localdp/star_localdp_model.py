@@ -68,6 +68,12 @@ class StarLocalDPModel(StarModel):
             # Get analyzer ids
             analyzers = aggregator.partner_node_ids
 
+            # Store aggregator and analyzer ids for test mode; do not proceed with aggregation loop in test mode
+            if self.test_mode:
+                self.aggregator = aggregator
+                self.analyzer_ids = analyzers
+                return
+
             while not aggregator.finished:  # (**)
                 # Await intermediate results
                 result_dict = self.flame.await_intermediate_data(analyzers)
@@ -99,3 +105,38 @@ class StarLocalDPModel(StarModel):
                     self.flame.send_intermediate_data(analyzers, agg_res)
         else:
             raise BrokenPipeError(_ERROR_MESSAGES.IS_INCORRECT_CLASS.value)
+
+    def _step_aggregator_test_mode(self,
+                                simple_analysis: bool = True,
+                                output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                                multiple_results: bool = False) -> Any:
+        if not self.test_mode:
+            raise ValueError("This method is only available in test mode.")
+
+        if not self.aggregator.finished:
+            # Await intermediate results
+            result_dict = self.flame.await_intermediate_data(self.analyzer_ids)
+
+            print(f"\tReceived intermediate results from analyzers: {len(result_dict)}")
+
+            # Aggregate results
+            agg_res, converged, delta_crit = self.aggregator.aggregate(list(result_dict.values()), simple_analysis)
+            self.flame.flame_log(f"Aggregated results: {str(agg_res)[:100]}")
+
+            if converged:
+                if delta_crit and (self.epsilon is not None) and (self.sensitivity is not None):
+                    local_dp = {"epsilon": self.epsilon, "sensitivity": self.sensitivity}
+                else:
+                    local_dp = None
+                if self.test_mode and (local_dp is not None):
+                    self.flame.flame_log(f"\tTest mode: Would apply local DP with epsilon={local_dp['epsilon']} "
+                                            f"and sensitivity={local_dp['sensitivity']}",
+                                            log_type='info')
+                response = self.flame.submit_final_result(agg_res, output_type, multiple_results, local_dp=local_dp)
+                self.flame.analysis_finished()
+                self.aggregator.node_finished()  # LOOP BREAK
+            else:
+                # Send aggregated result to analyzers
+                self.flame.send_intermediate_data(self.analyzer_ids, agg_res)
+            
+        return self.flame.message_broker

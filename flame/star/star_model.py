@@ -95,6 +95,12 @@ class StarModel:
             # Get analyzer ids
             analyzers = aggregator.partner_node_ids
 
+            # Store aggregator and analyzer ids for test mode; do not proceed with aggregation loop in test mode
+            if self.test_mode:
+                self.aggregator = aggregator
+                self.analyzer_ids = analyzers
+                return
+
             while not aggregator.finished:  # (**)
                 # Await intermediate results
                 result_dict = self.flame.await_intermediate_data(analyzers)
@@ -115,6 +121,40 @@ class StarModel:
                     self.flame.send_intermediate_data(analyzers, agg_res)
         else:
             raise BrokenPipeError(_ERROR_MESSAGES.IS_INCORRECT_CLASS.value)
+
+    def _step_aggregator_test_mode(self,
+                                simple_analysis: bool = True,
+                                output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                                multiple_results: bool = False) -> Any:
+        """
+        Execute one step of the aggregation loop in test mode.
+        
+        This returns the mock message broker of the aggregator, so it can be shared with the other nodes to simulate message passing.        
+        """
+        if not self.test_mode:
+            raise ValueError("This method is only available in test mode.")
+
+        if not self.aggregator.finished:
+            # Await intermediate results
+            result_dict = self.flame.await_intermediate_data(self.analyzer_ids)
+
+            print(f"\tReceived intermediate results from analyzers: {len(result_dict)}")
+
+            # Aggregate results
+            agg_res, converged, _ = self.aggregator.aggregate(list(result_dict.values()), simple_analysis)
+
+            print(f"\tAggregated result: {agg_res}, Converged: {converged}")
+
+            if converged:
+                response = self.flame.submit_final_result(agg_res, output_type, multiple_results)
+                self.flame.analysis_finished()
+                self.aggregator.node_finished()
+            else:
+                # Send aggregated result to analyzers
+                self.flame.send_intermediate_data(self.analyzer_ids, agg_res)
+            
+        return self.flame.message_broker
+
 
     def _start_analyzer(self,
                         analyzer: Type[Analyzer],
@@ -143,6 +183,11 @@ class StarModel:
             self._get_data(query=query, data_type=data_type)
             self.flame.flame_log(f"\tData extracted: {str(self.data)[:100]}", log_type='info')
 
+            if self.test_mode:
+                self.analyzer = analyzer
+                self.aggregator_id = aggregator_id
+                return
+
             # Check converged status on Hub
             while not analyzer.finished:  # (**)
                 # Analyze data
@@ -152,11 +197,37 @@ class StarModel:
 
                 # If not converged await aggregated result, loop back to (**)
                 if not simple_analysis:
-                    analyzer.latest_result = list(self.flame.await_intermediate_data([aggregator_id]).values())
+                    analyzer.latest_result = self.flame.await_intermediate_data([aggregator_id])[aggregator_id]
                 else:
                     analyzer.node_finished()
         else:
             raise BrokenPipeError(_ERROR_MESSAGES.IS_INCORRECT_CLASS.value)
+
+    def _step_analyzer_test_mode(self, simple_analysis: bool = True, num_iterations: int = 0) -> Any:
+        """
+        Execute one step of the analyzer loop in test mode.
+        
+        This returns the mock message broker of the analyzer, so it can be shared with the other nodes to simulate message passing.
+        """
+        if not self.test_mode:
+            raise ValueError("This method is only available in test mode.")
+
+        # Collect intermediate results from the aggregator if this not the first iteration
+        if not simple_analysis and num_iterations != 0:
+            agg_result = self.flame.await_intermediate_data([self.aggregator_id])[self.aggregator_id]
+            print(f"\tReceived intermediate result from aggregator: {agg_result}")
+            self.analyzer.set_latest_result(agg_result)
+
+        # Analyze data
+        analyzer_res = self.analyzer.analyze(data=self.data)
+
+        # Send intermediate result to aggregator
+        self.flame.send_intermediate_data([self.aggregator_id], analyzer_res)
+
+        if simple_analysis:
+            self.analyzer.node_finished()
+        return self.flame.message_broker
+
 
     def _wait_until_partners_ready(self) -> None:
         if self._is_analyzer():

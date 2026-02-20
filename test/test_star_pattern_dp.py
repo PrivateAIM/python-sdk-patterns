@@ -7,6 +7,8 @@ class MyAnalyzer(StarAnalyzer):
         super().__init__(flame)
 
     def analysis_method(self, data, aggregator_results):
+        if aggregator_results:
+            aggregator_results = aggregator_results[0]
         self.flame.flame_log(f"\tAggregator results in MyAnalyzer: {aggregator_results}", log_type='debug')
         analysis_result = sum(data) / len(data) \
             if aggregator_results is None \
