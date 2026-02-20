@@ -197,7 +197,7 @@ class StarModel:
 
                 # If not converged await aggregated result, loop back to (**)
                 if not simple_analysis:
-                    analyzer.latest_result = list(self.flame.await_intermediate_data([aggregator_id]).values())
+                    analyzer.latest_result = self.flame.await_intermediate_data([aggregator_id])[aggregator_id]
                 else:
                     analyzer.node_finished()
         else:
@@ -214,9 +214,9 @@ class StarModel:
 
         # Collect intermediate results from the aggregator if this not the first iteration
         if not simple_analysis and num_iterations != 0:
-            agg_results = list(self.flame.await_intermediate_data([self.aggregator_id]).values())
-            print(f"\tReceived intermediate result from aggregator: {agg_results}")
-            self.analyzer.set_latest_result(agg_results)
+            agg_result = self.flame.await_intermediate_data([self.aggregator_id])[self.aggregator_id]
+            print(f"\tReceived intermediate result from aggregator: {agg_result}")
+            self.analyzer.set_latest_result(agg_result)
 
         # Analyze data
         analyzer_res = self.analyzer.analyze(data=self.data)
