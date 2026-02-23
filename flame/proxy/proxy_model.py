@@ -226,10 +226,12 @@ class ProxyModel:
         else: # Aggregator
             # Aggregator needs to contact all nodes
             partner_ids = self.flame.get_participant_ids()
+            print(f"DEBUG partner_ids from get_participant_ids(): {partner_ids}")
             ready_check_dict = self.flame.ready_check(partner_ids)
             if not all(ready_check_dict.values()):
                 raise BrokenPipeError("Could not contact all nodes")
 
+            print(f"DEBUG Ready check successful. Partner nodes: {partner_ids}")
             return self._surjective_analyzer_to_proxy_mapping(partner_ids)
 
     def _surjective_analyzer_to_proxy_mapping(self, partner_ids: list[str]) -> tuple[list[str], list[str]]:
