@@ -282,8 +282,10 @@ class ProxyModel:
     def _get_data(self,
                   data_type: Literal['fhir', 's3'],
                   query: Optional[Union[str, list[str]]] = None) -> None:
-        if type(query) == str:
+        if (type(query) == str) and query:
             query = [query]
+        elif not query:
+            query = []
 
         if data_type == 'fhir':
             self.data = self.flame.get_fhir_data(query)
