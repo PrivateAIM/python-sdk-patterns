@@ -12,9 +12,9 @@ class Proxy(Node):
 
     def __init__(self, flame: Union[FlameCoreSDK, MockFlameCoreSDK]) -> None:
         super().__init__(flame)
-        if self.role != 'default':
+        if self.role != 'proxy':
             raise ValueError(f'Attempted to initialize proxy node with mismatching configuration '
-                             f'(expected: node_mode="default", received="{self.role}").')
+                             f'(expected: node_mode="proxy", received="{self.role}").')
         # Verify this is a proxy node (no data access)
         if hasattr(flame, 'node_has_data') and flame.node_has_data():
             raise ValueError(f'Attempted to initialize proxy node on a node with data access.')
