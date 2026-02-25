@@ -151,7 +151,7 @@ class StarModel:
 
                 # If not converged await aggregated result, loop back to (**)
                 if not simple_analysis:
-                    analyzer.latest_result = list(self.flame.await_intermediate_data([aggregator_id]).values())
+                    analyzer.latest_result = self.flame.await_intermediate_data([aggregator_id])[aggregator_id]
                 else:
                     analyzer.node_finished()
             if self.test_kwargs is not None:
