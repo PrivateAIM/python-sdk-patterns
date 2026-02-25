@@ -53,13 +53,13 @@ class MockFlameCoreSDK:
     def sanity_check(self, test_kwargs) -> None:
         required_kwargs_check = all([k in test_kwargs.keys() for k in _REQUIRED_KWARGS])
         data_given = 'fhir_data' in test_kwargs.keys() or 's3_data' in test_kwargs.keys()
-        test_node_kwargs_given = all(k in test_kwargs.keys() for k in ('num_iterations', 'latest_result'))
+        test_node_kwargs_given = all(k in test_kwargs['attributes'].keys() for k in ('num_iterations', 'latest_result'))
         if not required_kwargs_check:
             raise ValueError("test_kwargs must include 'node_id', 'participant_ids', and 'role' keys.")
         if not data_given:
             raise ValueError("test_kwargs must include either 'fhir_data' or 's3_data' key with corresponding data.")
         if not test_node_kwargs_given:
-            raise ValueError("test_kwargs must include 'num_iterations' and 'latest_result' keys.")
+            raise ValueError("test_kwargs['attributes'] must include 'num_iterations' and 'latest_result' keys.")
 
     ########################################General##################################################
     def get_aggregator_id(self) -> Optional[str]:
