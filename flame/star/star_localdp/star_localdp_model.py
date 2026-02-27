@@ -49,8 +49,7 @@ class StarLocalDPModel(StarModel):
                           simple_analysis: bool = True,
                           output_type: Literal['str', 'bytes', 'pickle'] = 'str',
                           multiple_results: bool = False,
-                          aggregator_kwargs: Optional[dict] = None,
-                          test_node_kwargs: Optional[dict[str, Any]] = None) -> None:
+                          aggregator_kwargs: Optional[dict] = None) -> None:
         if issubclass(aggregator, Aggregator):
             # init custom aggregator subclass
             if aggregator_kwargs is None:
@@ -58,9 +57,9 @@ class StarLocalDPModel(StarModel):
             else:
                 aggregator = aggregator(flame=self.flame, **aggregator_kwargs)
 
-            if test_node_kwargs is not None:
-                aggregator.set_num_iterations(test_node_kwargs['num_iterations'])
-                aggregator.set_latest_result(test_node_kwargs['latest_result'])
+            if self.test_kwargs is not None:
+                for attr, attr_val in self.test_kwargs['attributes'].items():
+                    setattr(aggregator, attr, attr_val)
 
             # Ready Check
             self._wait_until_partners_ready()
@@ -73,7 +72,7 @@ class StarLocalDPModel(StarModel):
                 result_dict = self.flame.await_intermediate_data(analyzers)
 
                 # Aggregate results
-                agg_res, converged, delta_crit = aggregator.aggregate(list(result_dict.values()), simple_analysis)
+                agg_res, converged = aggregator.aggregate(list(result_dict.values()), simple_analysis)
                 self.flame.flame_log(f"Aggregated results: {str(agg_res)[:100]}")
 
                 if converged:
@@ -81,7 +80,7 @@ class StarLocalDPModel(StarModel):
                         self.flame.flame_log("Submitting final results using differential privacy...",
                                              log_type='info',
                                              end='')
-                    if delta_crit and (self.epsilon is not None) and (self.sensitivity is not None):
+                    if aggregator.delta_criteria and (self.epsilon is not None) and (self.sensitivity is not None):
                         local_dp = {"epsilon": self.epsilon, "sensitivity": self.sensitivity}
                     else:
                         local_dp = None
@@ -97,5 +96,9 @@ class StarLocalDPModel(StarModel):
                 else:
                     # Send aggregated result to analyzers
                     self.flame.send_intermediate_data(analyzers, agg_res)
+            if self.test_kwargs is not None:
+                for attr, attr_val in aggregator.__dict__.items():
+                    if attr not in ['finished', 'flame']:
+                        self.test_kwargs['attributes'][attr] = attr_val
         else:
             raise BrokenPipeError(_ERROR_MESSAGES.IS_INCORRECT_CLASS.value)
