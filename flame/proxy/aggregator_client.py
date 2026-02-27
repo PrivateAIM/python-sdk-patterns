@@ -7,6 +7,8 @@ from flame.utils.mock_flame_core import MockFlameCoreSDK
 
 
 class Aggregator(Node):
+    delta_criteria: bool = False
+
     proxy_ids: list[str]
     analyzer_ids: list[str]
 
@@ -17,7 +19,7 @@ class Aggregator(Node):
             raise ValueError(f'Attempted to initialize aggregator node with mismatching configuration '
                              f'(expected: node_role="aggregator", received="{self.role}").')
 
-    def aggregate(self, proxy_results: list[Any], simple_analysis: bool = True) -> tuple[Union[Any, list[Any]], bool, bool]:
+    def aggregate(self, proxy_results: list[Any], simple_analysis: bool = True) -> tuple[Union[Any, list[Any]], bool]:
         """
         Aggregate results from proxy nodes.
 
@@ -27,16 +29,16 @@ class Aggregator(Node):
         """
         result = self.aggregation_method(proxy_results)
 
-        delta_criteria = self.has_converged(result, self.latest_result)
+        self.delta_criteria = self.has_converged(result, self.latest_result)
         if not simple_analysis:
-            converged = delta_criteria if self.num_iterations != 0 else False
+            converged = self.delta_criteria if self.num_iterations != 0 else False
         else:
             converged = True
 
         self.latest_result = result
         self.num_iterations += 1
 
-        return self.latest_result, converged, delta_criteria
+        return self.latest_result, converged
 
     def set_analyzer_and_proxy_ids(self, sorted_partner_ids: tuple[list[str], list[str]]) -> None:
         self.analyzer_ids, self.proxy_ids = sorted_partner_ids

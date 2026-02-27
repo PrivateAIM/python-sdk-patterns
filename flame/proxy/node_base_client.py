@@ -5,7 +5,7 @@ from flamesdk import FlameCoreSDK
 
 class Node:
     id: str
-    role: str  # Can be "default" or "aggregator"
+    role: str  # Can be "default", "proxy" or "aggregator"
     finished: bool
     latest_result: Optional[Any]
     partner_node_ids: list[str]

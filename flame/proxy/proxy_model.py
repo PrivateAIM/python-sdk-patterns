@@ -173,7 +173,7 @@ class ProxyModel:
                 result_dict = self.flame.await_intermediate_data(aggregator.proxy_ids)
 
                 # Aggregate results from proxies
-                agg_res, converged, _ = aggregator.aggregate(list(result_dict.values()), simple_analysis)
+                agg_res, converged = aggregator.aggregate(list(result_dict.values()), simple_analysis)
 
                 if converged:
                     response = self.flame.submit_final_result(agg_res, output_type, multiple_results)
