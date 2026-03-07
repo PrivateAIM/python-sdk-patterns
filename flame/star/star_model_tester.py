@@ -1,4 +1,5 @@
 import pickle
+import uuid
 from typing import Any, Type, Literal, Optional, Union
 
 from flame.star import StarModel, StarLocalDPModel, StarAnalyzer, StarAggregator
@@ -24,10 +25,12 @@ class StarModelTester:
                  result_filepath: Optional[Union[str, list[str]]] = None) -> None:
         test_kwargs_list = None
         converged = False
+        participant_ids = [str(uuid.uuid4()) for _ in range(len(data_splits) + 1)]
         while not converged:
             print(f"--- Starting Iteration {self.num_iterations} ---")
 
             result, test_kwargs_list = self.sim_iter(data_splits,
+                                                     participant_ids,
                                                      analyzer,
                                                      aggregator,
                                                      data_type,
@@ -56,6 +59,7 @@ class StarModelTester:
 
     def sim_iter(self,
                  data_splits: list[Any],
+                 participant_ids: list[str],
                  analyzer: Type[StarAnalyzer],
                  aggregator: Type[StarAggregator],
                  data_type: Literal['fhir', 's3'],
@@ -70,12 +74,12 @@ class StarModelTester:
         sim_nodes = {}
         num_splits = len(data_splits)
         for i in range(num_splits + 1):
-            node_id = f"node_{i}"
+            node_id = participant_ids[i]
             if test_kwargs_list is None:
                 test_kwargs = {f'{data_type}_data': data_splits[i] if i < num_splits else None,
                                'node_id': node_id,
-                               'aggregator': f"node_{num_splits}",
-                               'participant_ids': [f"node_{j}" for j in range(num_splits + 1) if i != j],
+                               'aggregator': participant_ids[-1],
+                               'participant_ids': [participant_ids[j] for j in range(num_splits + 1) if i != j],
                                'role': 'default' if i < num_splits else 'aggregator',
                                'analysis_id': "analysis_id",
                                'project_id': "project_id",
@@ -112,7 +116,7 @@ class StarModelTester:
                                                       sensitivity=sensitivity,
                                                       test_mode=True,
                                                       test_kwargs=test_kwargs)
-        return sim_nodes[f"node_{num_splits}"].flame.final_results_storage, [v.test_kwargs for v in sim_nodes.values()]
+        return sim_nodes[participant_ids[-1]].flame.final_results_storage, [v.test_kwargs for v in sim_nodes.values()]
 
     @staticmethod
     def write_result(result: Any,
