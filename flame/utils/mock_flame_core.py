@@ -181,7 +181,7 @@ class MockFlameCoreSDK:
     ########################################Storage Client###########################################
     def submit_final_result(self,
                             result: Any,
-                            output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                            output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                             multiple_results: bool = False,
                             local_dp: Optional[dict] = None) -> dict[str, str]:
         if local_dp is not None:

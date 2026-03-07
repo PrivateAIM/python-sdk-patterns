@@ -22,7 +22,7 @@ class StarLocalDPModel(StarModel):
                  data_type: Literal['fhir', 's3'],
                  query: Optional[Union[str, list[str]]] = None,
                  simple_analysis: bool = True,
-                 output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                 output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                  multiple_results: bool = False,
                  analyzer_kwargs: Optional[dict] = None,
                  aggregator_kwargs: Optional[dict] = None,
@@ -47,7 +47,7 @@ class StarLocalDPModel(StarModel):
     def _start_aggregator(self,
                           aggregator: Type[Aggregator],
                           simple_analysis: bool = True,
-                          output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                          output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                           multiple_results: bool = False,
                           aggregator_kwargs: Optional[dict] = None) -> None:
         if issubclass(aggregator, Aggregator):
