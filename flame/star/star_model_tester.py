@@ -16,7 +16,7 @@ class StarModelTester:
                  data_type: Literal['fhir', 's3'],
                  query: Optional[Union[str, list[str]]] = None,
                  simple_analysis: bool = True,
-                 output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                 output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                  multiple_results: bool = False,
                  analyzer_kwargs: Optional[dict] = None,
                  aggregator_kwargs: Optional[dict] = None,
@@ -64,7 +64,7 @@ class StarModelTester:
                  aggregator: Type[StarAggregator],
                  data_type: Literal['fhir', 's3'],
                  query: Optional[Union[str, list[str]]],
-                 output_type: Literal['str', 'bytes', 'pickle'],
+                 output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                  multiple_results: bool = False,
                  analyzer_kwargs: Optional[dict] = None,
                  aggregator_kwargs: Optional[dict] = None,
@@ -120,7 +120,7 @@ class StarModelTester:
 
     @staticmethod
     def write_result(result: Any,
-                     output_type: Literal['str', 'bytes', 'pickle'],
+                     output_type: Union[Literal['str', 'bytes', 'pickle'], list],
                      result_filepath: Optional[Union[str, list[str]]] = None,
                      multiple_results: bool = False) -> None:
         if multiple_results:
@@ -152,10 +152,14 @@ class StarModelTester:
                         current_path = f"{result_filename}_{i + 1}.{result_extension}"
                     else:
                         current_path = f"{result_filepath}_{i + 1}"
-                if output_type == 'str':
+                if isinstance(output_type, list) and (len(output_type) == len(result)):
+                    out_type = output_type[i]
+                else:
+                    out_type = output_type
+                if out_type == 'str':
                     with open(current_path, 'w') as f:
                         f.write(str(res))
-                elif output_type == 'pickle':
+                elif out_type == 'pickle':
                     with open(current_path, 'wb') as f:
                         f.write(pickle.dumps(res))
                 else:
