@@ -7,6 +7,7 @@ from flame.utils.mock_flame_core import MockFlameCoreSDK
 
 
 class Aggregator(Node):
+    delta_criteria: bool = False
 
     def __init__(self, flame: Union[FlameCoreSDK, MockFlameCoreSDK]) -> None:
         super().__init__(flame)
@@ -14,19 +15,19 @@ class Aggregator(Node):
             raise ValueError(f'Attempted to initialize aggregator node with mismatching configuration '
                              f'(expected: node_role="aggregator", received="{self.role}").')
 
-    def aggregate(self, node_results: list[Any], simple_analysis: bool = True) -> tuple[Any, bool, bool]:
+    def aggregate(self, node_results: list[Any], simple_analysis: bool = True) -> tuple[Any, bool]:
         result = self.aggregation_method(node_results)
 
-        delta_criteria = self.has_converged(result, self.latest_result)
+        self.delta_criteria = self.has_converged(result, self.latest_result)
         if not simple_analysis:
-            converged = delta_criteria if self.num_iterations != 0 else False
+            converged = self.delta_criteria if self.num_iterations != 0 else False
         else:
             converged = True
 
         self.latest_result = result
         self.num_iterations += 1
 
-        return self.latest_result, converged, delta_criteria
+        return self.latest_result, converged
 
     @abstractmethod
     def aggregation_method(self, analysis_results: list[Any]) -> Any:
