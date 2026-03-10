@@ -57,10 +57,6 @@ class StarLocalDPModel(StarModel):
             else:
                 aggregator = aggregator(flame=self.flame, **aggregator_kwargs)
 
-            if self.test_kwargs is not None:
-                for attr, attr_val in self.test_kwargs['attributes'].items():
-                    setattr(aggregator, attr, attr_val)
-
             # Ready Check
             self._wait_until_partners_ready()
 
@@ -96,9 +92,5 @@ class StarLocalDPModel(StarModel):
                 else:
                     # Send aggregated result to analyzers
                     self.flame.send_intermediate_data(analyzers, agg_res)
-            if self.test_kwargs is not None:
-                for attr, attr_val in aggregator.__dict__.items():
-                    if attr not in ['finished', 'flame']:
-                        self.test_kwargs['attributes'][attr] = attr_val
         else:
             raise BrokenPipeError(_ERROR_MESSAGES.IS_INCORRECT_CLASS.value)

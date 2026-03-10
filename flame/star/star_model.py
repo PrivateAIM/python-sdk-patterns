@@ -81,10 +81,6 @@ class StarModel:
             else:
                 aggregator = aggregator(flame=self.flame, **aggregator_kwargs)
 
-            if self.test_kwargs is not None:
-                for attr, attr_val in self.test_kwargs['attributes'].items():
-                    setattr(aggregator, attr, attr_val)
-
             # Ready Check
             self._wait_until_partners_ready()
 
@@ -109,10 +105,6 @@ class StarModel:
                 else:
                     # Send aggregated result to analyzers
                     self.flame.send_intermediate_data(analyzers, agg_res)
-            if self.test_kwargs is not None:
-                for attr, attr_val in aggregator.__dict__.items():
-                    if attr not in ['finished', 'flame']:
-                        self.test_kwargs['attributes'][attr] = attr_val
         else:
             raise BrokenPipeError(_ERROR_MESSAGES.IS_INCORRECT_CLASS.value)
 
@@ -128,10 +120,6 @@ class StarModel:
                 analyzer = analyzer(flame=self.flame)
             else:
                 analyzer = analyzer(flame=self.flame, **analyzer_kwargs)
-
-            if self.test_kwargs is not None:
-                for attr, attr_val in self.test_kwargs['attributes'].items():
-                    setattr(analyzer, attr, attr_val)
 
             aggregator_id = self.flame.get_aggregator_id()
 
@@ -152,12 +140,10 @@ class StarModel:
                 # If not converged await aggregated result, loop back to (**)
                 if not simple_analysis:
                     analyzer.latest_result = self.flame.await_intermediate_data([aggregator_id])[aggregator_id]
+                    if self.flame.config.finished:
+                        analyzer.node_finished()
                 else:
                     analyzer.node_finished()
-            if self.test_kwargs is not None:
-                for attr, attr_val in analyzer.__dict__.items():
-                    if attr not in ['finished', 'flame']:
-                        self.test_kwargs['attributes'][attr] = attr_val
         else:
             raise BrokenPipeError(_ERROR_MESSAGES.IS_INCORRECT_CLASS.value)
 
