@@ -1,3 +1,4 @@
+import time
 from enum import Enum
 from httpx import AsyncClient
 from io import StringIO
@@ -9,7 +10,7 @@ from opendp.measurements import make_laplace
 from opendp.metrics import absolute_distance
 
 
-_REQUIRED_KWARGS = ['node_id', 'participant_ids', 'role']
+_REQUIRED_KWARGS = ['node_id', 'aggregator_id', 'participant_ids', 'role']
 
 
 class HUB_LOG_LITERALS(Enum):
@@ -34,12 +35,26 @@ _LOG_TYPE_LITERALS = {'info': (HUB_LOG_LITERALS.info_log.value, 36),
                       'critical-error': (HUB_LOG_LITERALS.critical_error_code.value, 41)}
 
 
+class MockConfig:
+    def __init__(self, test_kwargs) -> None:
+        self.node_id: str = test_kwargs["node_id"]
+        self.aggregator_id: str = test_kwargs["aggregator_id"]
+        self.participant_ids: list[str] = test_kwargs["participant_ids"]
+        self.node_role: str = test_kwargs["role"]
+        self.finished: bool = False
+
+
 class MockFlameCoreSDK:
+    num_iterations: int = 0
+    logger: dict[str, list[str]] = {}
     message_broker: dict[str, list[dict[str, Any]]] = {}
     final_results_storage: Optional[Any] = None
 
     def __init__(self, test_kwargs):
         self.sanity_check(test_kwargs)
+        self.config = MockConfig(test_kwargs)
+        self.data = test_kwargs.get('fhir_data') or test_kwargs.get('s3_data')
+        self.logger[self.get_id()] = [self.get_role(), '']
 
         self._test_kwargs = test_kwargs
         self.progress = 0
@@ -53,23 +68,21 @@ class MockFlameCoreSDK:
     def sanity_check(self, test_kwargs) -> None:
         required_kwargs_check = all([k in test_kwargs.keys() for k in _REQUIRED_KWARGS])
         data_given = 'fhir_data' in test_kwargs.keys() or 's3_data' in test_kwargs.keys()
-        test_node_kwargs_given = all(k in test_kwargs['attributes'].keys() for k in ('num_iterations', 'latest_result'))
         if not required_kwargs_check:
-            raise ValueError("test_kwargs must include 'node_id', 'participant_ids', and 'role' keys.")
+            print('\n'.join([f"{k} in test_kwargs: {k in test_kwargs.keys()}" for k in _REQUIRED_KWARGS]))
+            raise ValueError("test_kwargs must include 'node_id', 'aggregator_id', 'participant_ids', and 'role' keys.")
         if not data_given:
             raise ValueError("test_kwargs must include either 'fhir_data' or 's3_data' key with corresponding data.")
-        if not test_node_kwargs_given:
-            raise ValueError("test_kwargs['attributes'] must include 'num_iterations' and 'latest_result' keys.")
 
     ########################################General##################################################
     def get_aggregator_id(self) -> Optional[str]:
-        return self._test_kwargs.get('aggregator', 'node3')
+        return self.config.aggregator_id
 
     def get_participants(self) -> list[dict[str, str]]:
         return self._test_kwargs.get('participants', [{'id': 'node1'}, {'id': 'node2'}])
 
     def get_participant_ids(self) -> list[str]:
-        return self._test_kwargs.get('participant_ids', ['node1', 'node2'])
+        return self.config.participant_ids
 
     def get_analysis_id(self) -> str:
         return self._test_kwargs.get('analysis_id', 'analysis_123')
@@ -78,13 +91,20 @@ class MockFlameCoreSDK:
         return self._test_kwargs.get('project_id', 'project_123')
 
     def get_id(self) -> str:
-        return self._test_kwargs.get('node_id', 'node_123')
+        return self.config.node_id
 
     def get_role(self) -> str:
-        return self._test_kwargs.get('role', 'default')
+        return self.config.node_role
 
     def analysis_finished(self) -> bool:
-        pass
+        if self.get_participant_ids():
+            self.send_message(self.get_participant_ids(),
+                              "analysis_finished",
+                              {},
+                              max_attempts=5,
+                              attempt_timeout=30)
+            self.config.finished = True
+        return True
 
     def ready_check(self,
                     nodes: list[str] = 'all',
@@ -93,7 +113,6 @@ class MockFlameCoreSDK:
         if nodes == 'all':
             nodes = self.get_participants
         return {node: True for node in nodes}
-
 
     def flame_log(self,
                   msg: Union[str, bytes],
@@ -107,8 +126,7 @@ class MockFlameCoreSDK:
             color = str(_LOG_TYPE_LITERALS[log_type][1])
         else:
             color = str(_LOG_TYPE_LITERALS['normal'][1])
-        print(f'\033[{color}m{msg}\033[0m', end=end)
-
+        self.logger[self.get_id()][1] += f"\033[{color}m{msg}\033[0m{end}"
 
     def declare_log_types(self, new_log_types: dict[str, str]) -> None:
         pass
@@ -150,14 +168,57 @@ class MockFlameCoreSDK:
                      max_attempts: int = 1,
                      timeout: Optional[int] = None,
                      attempt_timeout: int = 10) -> tuple[list[str], list[str]]:
-        pass
+        sender = self.get_id()
+        for r in receivers:
+            if r not in self.message_broker.keys():
+                self.message_broker[r] = []
+            inbox = self.message_broker[r]
+            inbox.append({
+                "category": message_category,
+                "sender": sender,
+                "data": message,
+            })
+            self.message_broker[r] = inbox
+        return receivers, []
 
     def await_messages(self,
                        senders: list[str],
                        message_category: str,
                        message_id: Optional[str] = None,
                        timeout: Optional[int] = None) -> dict[str, Optional[list[str]]]:
-        pass
+        node_id = self.get_id()
+
+        while True:
+            try:
+                inbox = self.message_broker.get(node_id, [])
+                if inbox:
+                    finished_messages = [msg for msg in inbox if msg["category"] == 'analysis_finished']
+                    if finished_messages:
+                        self._node_finished()
+                        break
+
+                    msg_senders = [msg["sender"] for msg in inbox if msg["category"] == message_category]
+                    if all(sender in msg_senders for sender in senders):
+                        break
+                raise KeyError
+            except KeyError:
+                time.sleep(.01)
+                pass
+
+        if not self.config.finished:
+            remaining_msgs = []
+            latest_results = {}
+            for msg in inbox:
+                if (msg["category"] == message_category) and (msg["sender"] in senders):
+                    latest_results[msg["sender"]] = msg["data"]
+                else:
+                    remaining_msgs.append(msg)
+
+            # retain only unconsumed messages
+            self.message_broker[node_id] = remaining_msgs
+            return latest_results
+        else:
+            return {self.config.aggregator_id: None}
 
     def get_messages(self, status: Literal['unread', 'read'] = 'unread') -> list[str]:
         pass
@@ -183,7 +244,7 @@ class MockFlameCoreSDK:
                             result: Any,
                             output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                             multiple_results: bool = False,
-                            local_dp: Optional[dict] = None) -> dict[str, str]:
+                            local_dp: Optional[dict] = None) -> Union[dict[str, str], list[dict[str, str]]]:
         if local_dp is not None:
             if type(result) in [int, float]:
                 enable_features("contrib")
@@ -196,6 +257,7 @@ class MockFlameCoreSDK:
                 self.flame_log("Given result type is not supported for local DP -> DP step will be skipped.",
                                log_type='warning')
         self.final_results_storage = result
+        return {"result": "submitted"}
 
     def save_intermediate_data(self,
                                data: Any,
@@ -220,40 +282,20 @@ class MockFlameCoreSDK:
                                timeout: Optional[int] = None,
                                attempt_timeout: int = 10,
                                encrypted: bool = False) -> tuple[list[str], list[str]]:
-
-        sender = self.get_id()
-        for r in receivers:
-            if r not in self.message_broker.keys():
-                self.message_broker[r] = []
-            inbox = self.message_broker[r]
-            inbox.append({
-                "category": message_category,
-                "sender": sender,
-                "data": data,
-            })
-            self.message_broker[r] = inbox
+        receivers, _ = self.send_message(receivers=receivers,
+                                         message_category=message_category,
+                                         message=data,
+                                         max_attempts=max_attempts,
+                                         timeout=timeout,)
+        if self.get_id() == self.get_aggregator_id():
+            self.__pop_logs__()
         return receivers, []
 
     def await_intermediate_data(self,
                                 senders: list[str],
                                 message_category: str = "intermediate_data",
                                 timeout: Optional[int] = None) -> dict[str, Any]:
-        node_id = self.get_id()
-
-        inbox = self.message_broker.get(node_id, [])
-
-        remaining_msgs = []
-        latest_results = {}
-        for msg in inbox:
-            if (msg["category"] == message_category) and (msg["sender"] in senders):
-                latest_results[msg["sender"]] = msg["data"]
-            else:
-                remaining_msgs.append(msg)
-
-        # retain only unconsumed messages
-        self.message_broker[node_id] = remaining_msgs
-
-        return latest_results
+        return self.await_messages(senders=senders, message_category=message_category, timeout=timeout)
 
     def get_local_tags(self, filter: Optional[str] = None) -> list[str]:
         pass
@@ -266,7 +308,27 @@ class MockFlameCoreSDK:
         pass
 
     def get_fhir_data(self, fhir_queries: Optional[list[str]] = None) -> Optional[list[Union[dict[str, dict], dict]]]:
-        return self._test_kwargs['fhir_data']
+        if 'fhir_data' in self._test_kwargs.keys():
+            return self.data
+        else:
+            raise ValueError("No FHIR data provided in test_kwargs.")
 
     def get_s3_data(self, s3_keys: Optional[list[str]] = None) -> Optional[list[Union[dict[str, str], str]]]:
-        return self._test_kwargs['s3_data']
+        if 's3_data' in self._test_kwargs.keys():
+            return self.data
+        else:
+            raise ValueError("No S3 data provided in test_kwargs.")
+
+    def _node_finished(self) -> bool:
+        self.config.finished = True
+        return self.config.finished
+
+    def __pop_logs__(self) -> None:
+        print(f"--- Starting Iteration {self.num_iterations} ---")
+        for k, v in self.logger.items():
+            role, log = self.logger[k]
+            print(f"Logs for {'Analyzer' if role == 'default' else role.capitalize()} {k}:")
+            self.logger[k] = [role, '']
+            print(log, end='')
+        print(f"--- Ending Iteration {self.num_iterations} ---\n")
+        self.num_iterations += 1

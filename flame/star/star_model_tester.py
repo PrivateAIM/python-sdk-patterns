@@ -1,4 +1,5 @@
 import pickle
+import threading
 import uuid
 from typing import Any, Type, Literal, Optional, Union
 
@@ -6,14 +7,12 @@ from flame.star import StarModel, StarLocalDPModel, StarAnalyzer, StarAggregator
 
 
 class StarModelTester:
-    latest_result: Optional[Any] = None
-    num_iterations: int = 0
-
     def __init__(self,
                  data_splits: list[Any],
                  analyzer: Type[StarAnalyzer],
                  aggregator: Type[StarAggregator],
                  data_type: Literal['fhir', 's3'],
+                 node_roles: Optional[list[str]] = None,
                  query: Optional[Union[str, list[str]]] = None,
                  simple_analysis: bool = True,
                  output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
@@ -23,100 +22,57 @@ class StarModelTester:
                  epsilon: Optional[float] = None,
                  sensitivity: Optional[float] = None,
                  result_filepath: Optional[Union[str, list[str]]] = None) -> None:
-        test_kwargs_list = None
-        converged = False
-        participant_ids = [str(uuid.uuid4()) for _ in range(len(data_splits) + 1)]
-        while not converged:
-            print(f"--- Starting Iteration {self.num_iterations} ---")
-
-            result, test_kwargs_list = self.sim_iter(data_splits,
-                                                     participant_ids,
-                                                     analyzer,
-                                                     aggregator,
-                                                     data_type,
-                                                     query,
-                                                     output_type,
-                                                     multiple_results,
-                                                     analyzer_kwargs,
-                                                     aggregator_kwargs,
-                                                     epsilon,
-                                                     sensitivity,
-                                                     test_kwargs_list)
-
-            test_agg_kwargs = test_kwargs_list[-1]
-            if simple_analysis:
-                self.write_result(result, output_type, result_filepath, multiple_results)
-                converged = True
-            else:
-                converged = test_agg_kwargs['attributes']['delta_criteria']
-                if converged:
-                    self.write_result(result, output_type, result_filepath, multiple_results)
-                else:
-                    self.latest_result = result
-
-            print(f"--- Ending Iteration {self.num_iterations} ---\n")
-            self.num_iterations += 1
-
-    def sim_iter(self,
-                 data_splits: list[Any],
-                 participant_ids: list[str],
-                 analyzer: Type[StarAnalyzer],
-                 aggregator: Type[StarAggregator],
-                 data_type: Literal['fhir', 's3'],
-                 query: Optional[Union[str, list[str]]],
-                 output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
-                 multiple_results: bool = False,
-                 analyzer_kwargs: Optional[dict] = None,
-                 aggregator_kwargs: Optional[dict] = None,
-                 epsilon: Optional[float] = None,
-                 sensitivity: Optional[float] = None,
-                 test_kwargs_list: Optional[list[dict]] = None) -> tuple[Any, list[dict[str, Any]]]:
-        sim_nodes = {}
         num_splits = len(data_splits)
-        for i in range(num_splits + 1):
-            node_id = participant_ids[i]
-            if test_kwargs_list is None:
-                test_kwargs = {f'{data_type}_data': data_splits[i] if i < num_splits else None,
-                               'node_id': node_id,
-                               'aggregator': participant_ids[-1],
-                               'participant_ids': [participant_ids[j] for j in range(num_splits + 1) if i != j],
-                               'role': 'default' if i < num_splits else 'aggregator',
-                               'analysis_id': "analysis_id",
-                               'project_id': "project_id",
-                               'attributes': {}
-                               }
-            else:
-                test_kwargs = test_kwargs_list[i]
-            test_kwargs['attributes']['num_iterations'] = self.num_iterations
-            test_kwargs['attributes']['latest_result'] = self.latest_result
+        if node_roles is None:
+            node_roles = ['default' for _ in range(len(data_splits))]
+        participant_ids = [str(uuid.uuid4()) for _ in range(len(node_roles) + 1)]
 
-            if (epsilon is None) or (sensitivity is None):
-                sim_nodes[node_id] = StarModel(analyzer,
-                                               aggregator,
-                                               data_type,
-                                               query,
-                                               True,
-                                               output_type,
-                                               multiple_results,
-                                               analyzer_kwargs,
-                                               aggregator_kwargs,
-                                               test_mode=True,
-                                               test_kwargs=test_kwargs)
-            else:
-                sim_nodes[node_id] = StarLocalDPModel(analyzer,
-                                                      aggregator,
-                                                      data_type,
-                                                      query,
-                                                      True,
-                                                      output_type,
-                                                      multiple_results,
-                                                      analyzer_kwargs,
-                                                      aggregator_kwargs,
-                                                      epsilon=epsilon,
-                                                      sensitivity=sensitivity,
-                                                      test_mode=True,
-                                                      test_kwargs=test_kwargs)
-        return sim_nodes[participant_ids[-1]].flame.final_results_storage, [v.test_kwargs for v in sim_nodes.values()]
+        threads = []
+        for i, participant_id in enumerate(participant_ids):
+            test_kwargs = {
+                'analyzer': analyzer,
+                'aggregator': aggregator,
+                'data_type': data_type,
+                'query': query,
+                'simple_analysis': simple_analysis,
+                'output_type': output_type,
+                'multiple_results': multiple_results,
+                'analyzer_kwargs': analyzer_kwargs,
+                'aggregator_kwargs': aggregator_kwargs,
+                'test_mode': True,
+                'test_kwargs': {f'{data_type}_data': data_splits[i] if i < num_splits else None,
+                                'node_id': participant_id,
+                                'aggregator_id': participant_ids[-1],
+                                'participant_ids': [participant_ids[j] for j in range(num_splits + 1) if i != j],
+                                'role': node_roles[i] if i < num_splits else 'aggregator',
+                                'analysis_id': "analysis_id",
+                                'project_id': "project_id"
+                                }
+            }
+            use_local_dp = (epsilon is not None) and (sensitivity is not None)
+            if use_local_dp:
+                test_kwargs['epsilon'] = epsilon
+                test_kwargs['sensitivity'] = sensitivity
+
+            results_queue = []
+            def run_node(kwargs=test_kwargs, use_dp=use_local_dp):
+                if not use_dp:
+                    flame = StarModel(**kwargs).flame
+                else:
+                    flame = StarLocalDPModel(**kwargs).flame
+                results_queue.append(flame.final_results_storage)
+            thread = threading.Thread(target=run_node)
+            threads.append(thread)
+
+        for thread in threads:
+            thread.start()
+
+        for thread in threads:
+            thread.join()
+
+        # write final results
+        self.write_result(results_queue[0], output_type, result_filepath, multiple_results)
+
 
     @staticmethod
     def write_result(result: Any,
