@@ -44,11 +44,23 @@ class MockConfig:
         self.finished: bool = False
 
 
+class IterationTracker:
+    def __init__(self):
+        self.iter = 0
+
+    def increment(self):
+        self.iter += 1
+
+    def get_iterations(self):
+        return self.iter
+
+
 class MockFlameCoreSDK:
-    num_iterations: int = 0
+    num_iterations: IterationTracker = IterationTracker()
     logger: dict[str, list[str]] = {}
     message_broker: dict[str, list[dict[str, Any]]] = {}
     final_results_storage: Optional[Any] = None
+    stop_event: list[tuple[str]] = []
 
     def __init__(self, test_kwargs):
         self.sanity_check(test_kwargs)
@@ -202,6 +214,8 @@ class MockFlameCoreSDK:
                         break
                 raise KeyError
             except KeyError:
+                if self.stop_event:
+                    raise Exception
                 time.sleep(.01)
                 pass
 
@@ -323,12 +337,17 @@ class MockFlameCoreSDK:
         self.config.finished = True
         return self.config.finished
 
-    def __pop_logs__(self) -> None:
-        print(f"--- Starting Iteration {self.num_iterations} ---")
+    def __pop_logs__(self, failure_message: bool = False) -> None:
+        print(f"--- Starting Iteration {self.__get_iteration__()} ---")
+        if failure_message:
+            self.flame_log("Exception was raised (see Stacktrace)!", log_type='error')
         for k, v in self.logger.items():
             role, log = self.logger[k]
             print(f"Logs for {'Analyzer' if role == 'default' else role.capitalize()} {k}:")
             self.logger[k] = [role, '']
             print(log, end='')
-        print(f"--- Ending Iteration {self.num_iterations} ---\n")
-        self.num_iterations += 1
+        print(f"--- Ending Iteration {self.__get_iteration__()} ---\n")
+        self.num_iterations.increment()
+
+    def __get_iteration__(self):
+        return self.num_iterations.get_iterations()

@@ -2,8 +2,10 @@ import pickle
 import threading
 import uuid
 from typing import Any, Type, Literal, Optional, Union
+import traceback
 
 from flame.star import StarModel, StarLocalDPModel, StarAnalyzer, StarAggregator
+from flame.utils.mock_flame_core import MockFlameCoreSDK
 
 
 class StarModelTester:
@@ -28,6 +30,9 @@ class StarModelTester:
         participant_ids = [str(uuid.uuid4()) for _ in range(len(node_roles) + 1)]
 
         threads = []
+        thread_errors = {}
+        results_queue = []
+        MockFlameCoreSDK.stop_event = []  # shared stop event for all threads in case of failure in any thread
         for i, participant_id in enumerate(participant_ids):
             test_kwargs = {
                 'analyzer': analyzer,
@@ -54,13 +59,28 @@ class StarModelTester:
                 test_kwargs['epsilon'] = epsilon
                 test_kwargs['sensitivity'] = sensitivity
 
-            results_queue = []
             def run_node(kwargs=test_kwargs, use_dp=use_local_dp):
-                if not use_dp:
-                    flame = StarModel(**kwargs).flame
-                else:
-                    flame = StarLocalDPModel(**kwargs).flame
-                results_queue.append(flame.final_results_storage)
+                try:
+                    if not use_dp:
+                        flame = StarModel(**kwargs).flame
+                    else:
+                        flame = StarLocalDPModel(**kwargs).flame
+                    results_queue.append(flame.final_results_storage)
+                except Exception:
+                    stop_event = MockFlameCoreSDK.stop_event
+                    if not stop_event:
+                        stack_trace = traceback.format_exc()#.replace('\n', '\\n').replace('\t', '\\t')
+                        thread_errors[(kwargs['test_kwargs']['role'],
+                                       kwargs['test_kwargs']['node_id'])] = f"\033[31m{stack_trace}\033[0m"
+                        stop_event.append(kwargs['test_kwargs']['node_id'])
+                        mock = MockFlameCoreSDK(test_kwargs=kwargs['test_kwargs'])
+                        mock.__pop_logs__(failure_message=True)
+                    else:
+                        thread_errors[(kwargs['test_kwargs']['role'],
+                                       kwargs['test_kwargs']['node_id'])] = (Exception("Another thread already failed, "
+                                                                                       "stopping this thread as well."))
+                    return
+
             thread = threading.Thread(target=run_node)
             threads.append(thread)
 
@@ -70,8 +90,14 @@ class StarModelTester:
         for thread in threads:
             thread.join()
 
+
         # write final results
-        self.write_result(results_queue[0], output_type, result_filepath, multiple_results)
+        if results_queue:
+            self.write_result(results_queue[0], output_type, result_filepath, multiple_results)
+        else:
+            print("No results to write. All threads failed with errors:")
+            for (role, node_id), error in thread_errors.items():
+                print(f"\t{(role if role != 'default' else 'analyzer').capitalize()} {node_id}: {error}")
 
 
     @staticmethod
