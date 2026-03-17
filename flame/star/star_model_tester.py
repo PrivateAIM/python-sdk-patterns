@@ -32,6 +32,7 @@ class StarModelTester:
         threads = []
         thread_errors = {}
         results_queue = []
+        MockFlameCoreSDK.stop_event = []  # shared stop event for all threads in case of failure in any thread
         for i, participant_id in enumerate(participant_ids):
             test_kwargs = {
                 'analyzer': analyzer,
