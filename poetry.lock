@@ -177,7 +177,7 @@ files = [
 
 [[package]]
 name = "flamesdk"
-version = "0.4.3"
+version = "0.4.2"
 description = ""
 category = "main"
 optional = false
@@ -193,8 +193,8 @@ uvicorn = "^0.27.1"
 [package.source]
 type = "git"
 url = "https://github.com/PrivateAIM/python-sdk.git"
-reference = "0.4.3"
-resolved_reference = "0bcfa23f6bbc2f832f0587185999713d31ab4992"
+reference = "0.4.2"
+resolved_reference = "59699d4152f27521fb113647738825cd625084b7"
 
 [[package]]
 name = "h11"
@@ -989,4 +989,4 @@ dev = ["pytest", "setuptools"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-content-hash = "932bdd4d2d202b396cb5d77d6b074698909ebc7fbd415b50103fb16ec2dc06e3"
+content-hash = "36c87da31bfe90017f3cb6e335187ed06347e79c0f471371c29b7824aa6c8a38"
