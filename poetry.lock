@@ -228,8 +228,8 @@ uvicorn = "^0.27.1"
 [package.source]
 type = "git"
 url = "https://github.com/PrivateAIM/python-sdk.git"
-reference = "0.4.2"
-resolved_reference = "59699d4152f27521fb113647738825cd625084b7"
+reference = "fix-progress-and-storage"
+resolved_reference = "e2e1530c5d1b269db91c980e2a34b4ed2ab6858a"
 
 [[package]]
 name = "h11"
@@ -1118,4 +1118,4 @@ dev = ["pytest", "setuptools"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9,<4.0"
-content-hash = "36c87da31bfe90017f3cb6e335187ed06347e79c0f471371c29b7824aa6c8a38"
+content-hash = "3218aa8cb347b992f5fce7cf2dafbeb76ebacc00fe839f59e49af58431e870a2"
