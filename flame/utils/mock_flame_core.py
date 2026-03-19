@@ -275,8 +275,8 @@ class MockFlameCoreSDK:
             self.__pop_logs__()
             return {"result": "submitted"}
         else:
-            raise RuntimeError(f"Final results may only be submitted by the analysis aggregator "
-                               f"{self.get_aggregator_id()} (given node with id={self.get_id()}).")
+            raise RuntimeError(f"Final results may only be submitted by the aggregator {self.get_aggregator_id()} "
+                               f"(given node with id={self.get_id()}).")
 
     def save_intermediate_data(self,
                                data: Any,
