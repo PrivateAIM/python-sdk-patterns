@@ -25,6 +25,7 @@ class StarModelTester:
                  sensitivity: Optional[float] = None,
                  result_filepath: Optional[Union[str, list[str]]] = None) -> None:
         num_splits = len(data_splits)
+        self.test_input(data_splits[0])
         if node_roles is None:
             node_roles = ['default' for _ in range(len(data_splits))]
         participant_ids = [str(uuid.uuid4()) for _ in range(len(node_roles) + 1)]
@@ -69,7 +70,7 @@ class StarModelTester:
                 except Exception:
                     stop_event = MockFlameCoreSDK.stop_event
                     if not stop_event:
-                        stack_trace = traceback.format_exc()#.replace('\n', '\\n').replace('\t', '\\t')
+                        stack_trace = traceback.format_exc()
                         thread_errors[(kwargs['test_kwargs']['role'],
                                        kwargs['test_kwargs']['node_id'])] = f"\033[31m{stack_trace}\033[0m"
                         stop_event.append(kwargs['test_kwargs']['node_id'])
@@ -99,6 +100,36 @@ class StarModelTester:
             for (role, node_id), error in thread_errors.items():
                 print(f"\t{(role if role != 'default' else 'analyzer').capitalize()} {node_id}: {error}")
 
+    @staticmethod
+    def test_input(data: Any) -> None:
+        is_list = isinstance(data, list)
+        try:
+            contains_ds = len(data) != 0
+        except TypeError:
+            contains_ds = False
+        try:
+            contains_data = isinstance(data[0], dict)
+        except TypeError:
+            contains_data = False
+        if (not is_list) or (not contains_ds) or (not contains_data):
+            print("\033[93mWarning! Data readied in FLAME's architecture will always be a list of dictionaries at "
+                  "every node.\n\tHere, each dictionary corresponds to a datasource within the node (ex. multiple "
+                  "s3-buckets connected to an analysis).\n\tThe dictionary items, depending on whether you are accessing "
+                  "s3 of fhir data, either each correspond to a dataset in the datasource for s3 or a fhir bundle "
+                  "for fhir.\n\t\t* For s3, the items contain the dataset names as keys and the datasets in bytes format as "
+                  "values. \n\t\t* For fhir, the items contain the queries used to retrieve the bundles as keys and the "
+                  "bundles as dictionaries as values.\nTo summarize: You see this warning because the data used for "
+                  "testing here is not in line with this format, which may result in your analysis working locally "
+                  "during testing, but not in the actual architecture.\nTo get rid of this Warning make sure your data "
+                  "fulfills the following criteria, and your analysis accommodates this input format:\033[0m")
+            if not is_list:
+                print("\033[93m\t* Format your splits as lists.\033[0m")
+            if not contains_ds:
+                print("\033[93m\t* Fill your datasource lists with data.\033[0m")
+            if not contains_data:
+                print("\033[93m\t* Ensure your data is set as dicts containing datasets.\033[0m")
+        else:
+            pass
 
     @staticmethod
     def write_result(result: Any,
