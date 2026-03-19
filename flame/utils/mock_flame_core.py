@@ -10,7 +10,7 @@ from opendp.measurements import make_laplace
 from opendp.metrics import absolute_distance
 
 
-_REQUIRED_KWARGS = ['node_id', 'aggregator_id', 'participant_ids', 'role']
+_REQUIRED_KWARGS = ['node_id', 'aggregator_id', 'role', 'participants']
 
 
 class HUB_LOG_LITERALS(Enum):
@@ -39,7 +39,7 @@ class MockConfig:
     def __init__(self, test_kwargs) -> None:
         self.node_id: str = test_kwargs["node_id"]
         self.aggregator_id: str = test_kwargs["aggregator_id"]
-        self.participant_ids: list[str] = test_kwargs["participant_ids"]
+        self.participants: list[dict[str, str]] = test_kwargs['participants']
         self.node_role: str = test_kwargs["role"]
         self.finished: bool = False
 
@@ -82,7 +82,7 @@ class MockFlameCoreSDK:
         data_given = 'fhir_data' in test_kwargs.keys() or 's3_data' in test_kwargs.keys()
         if not required_kwargs_check:
             print('\n'.join([f"{k} in test_kwargs: {k in test_kwargs.keys()}" for k in _REQUIRED_KWARGS]))
-            raise ValueError("test_kwargs must include 'node_id', 'aggregator_id', 'participant_ids', and 'role' keys.")
+            raise ValueError("test_kwargs must include 'node_id', 'aggregator_id', 'role', and 'participants' keys.")
         if not data_given:
             raise ValueError("test_kwargs must include either 'fhir_data' or 's3_data' key with corresponding data.")
 
@@ -91,10 +91,10 @@ class MockFlameCoreSDK:
         return self.config.aggregator_id
 
     def get_participants(self) -> list[dict[str, str]]:
-        return self._test_kwargs.get('participants', [{'id': 'node1'}, {'id': 'node2'}])
+        return self.config.participants
 
     def get_participant_ids(self) -> list[str]:
-        return self.config.participant_ids
+        return [v for participant in self.config.participants for k, v in participant.items() if k == 'id']
 
     def get_analysis_id(self) -> str:
         return self._test_kwargs.get('analysis_id', 'analysis_123')
@@ -198,6 +198,13 @@ class MockFlameCoreSDK:
                        message_category: str,
                        message_id: Optional[str] = None,
                        timeout: Optional[int] = None) -> dict[str, Optional[list[str]]]:
+        if not isinstance(senders, list):
+            raise ValueError(f"Senders should be provided as a list of participant ids. Not {senders} of type {type(senders)}.")
+        else:
+            for sender in senders:
+                if sender not in self.get_participant_ids():
+                    raise ValueError(f"Sender {sender} is not a valid participant id for this analysis.")
+
         node_id = self.get_id()
 
         while True:

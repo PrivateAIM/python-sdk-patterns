@@ -26,15 +26,24 @@ class StarModelTester:
                  result_filepath: Optional[Union[str, list[str]]] = None) -> None:
         num_splits = len(data_splits)
         self.test_input(data_splits[0])
-        if node_roles is None:
-            node_roles = ['default' for _ in range(len(data_splits))]
-        participant_ids = [str(uuid.uuid4()) for _ in range(len(node_roles) + 1)]
+        participants = []
+        if node_roles is not None and len(data_splits) != len(data_splits):
+            raise ValueError(f"Length of node_roles ({len(node_roles)}) must be equal to length of data_splits "
+                             f"({len(data_splits)}), if node_roles is provided.")
+        for i in range(len(data_splits) + 1):
+            participant_id = str(uuid.uuid4())
+            participant_role = ('default' if i < len(data_splits) else 'aggregator') \
+                if node_roles is None else \
+                (node_roles[i] if i < len(node_roles) else 'aggregator')
+            participants.append({'id': participant_id, 'role': participant_role})
 
         threads = []
         thread_errors = {}
         results_queue = []
         MockFlameCoreSDK.stop_event = []  # shared stop event for all threads in case of failure in any thread
-        for i, participant_id in enumerate(participant_ids):
+        for i, participant in enumerate(participants):
+            participant_id = participant['id']
+            participant_role = participant['role']
             test_kwargs = {
                 'analyzer': analyzer,
                 'aggregator': aggregator,
@@ -48,9 +57,9 @@ class StarModelTester:
                 'test_mode': True,
                 'test_kwargs': {f'{data_type}_data': data_splits[i] if i < num_splits else None,
                                 'node_id': participant_id,
-                                'aggregator_id': participant_ids[-1],
-                                'participant_ids': [participant_ids[j] for j in range(num_splits + 1) if i != j],
-                                'role': node_roles[i] if i < num_splits else 'aggregator',
+                                'aggregator_id': participants[-1]['id'],
+                                'participants': [part for j, part in enumerate(participants) if i != j],
+                                'role': participant_role,
                                 'analysis_id': "analysis_id",
                                 'project_id': "project_id"
                                 }
@@ -110,6 +119,8 @@ class StarModelTester:
         try:
             contains_data = isinstance(data[0], dict)
         except TypeError:
+            contains_data = False
+        except KeyError:
             contains_data = False
         if (not is_list) or (not contains_ds) or (not contains_data):
             print("\033[93mWarning! Data readied in FLAME's architecture will always be a list of dictionaries at "
