@@ -259,19 +259,24 @@ class MockFlameCoreSDK:
                             output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                             multiple_results: bool = False,
                             local_dp: Optional[dict] = None) -> Union[dict[str, str], list[dict[str, str]]]:
-        if local_dp is not None:
-            if type(result) in [int, float]:
-                enable_features("contrib")
-                scale = local_dp['sensitivity'] / local_dp['epsilon']  # Laplace scale parameter
-                laplace_mech = make_laplace(input_domain=atom_domain(T=float),
-                                            input_metric=absolute_distance(T=float),
-                                            scale=scale)
-                result = laplace_mech(float(result))
-            else:
-                self.flame_log("Given result type is not supported for local DP -> DP step will be skipped.",
-                               log_type='warning')
-        self.final_results_storage = result
-        return {"result": "submitted"}
+        if self.get_id() == self.get_aggregator_id():
+            if local_dp is not None:
+                if type(result) in [int, float]:
+                    enable_features("contrib")
+                    scale = local_dp['sensitivity'] / local_dp['epsilon']  # Laplace scale parameter
+                    laplace_mech = make_laplace(input_domain=atom_domain(T=float),
+                                                input_metric=absolute_distance(T=float),
+                                                scale=scale)
+                    result = laplace_mech(float(result))
+                else:
+                    self.flame_log("Given result type is not supported for local DP -> DP step will be skipped.",
+                                   log_type='warning')
+            self.final_results_storage = result
+            self.__pop_logs__()
+            return {"result": "submitted"}
+        else:
+            raise RuntimeError(f"Final results may only be submitted by the analysis aggregator "
+                               f"{self.get_aggregator_id()} (given node with id={self.get_id()}).")
 
     def save_intermediate_data(self,
                                data: Any,
