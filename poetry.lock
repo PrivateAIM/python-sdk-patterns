@@ -251,7 +251,7 @@ uvicorn = "^0.27.1"
 type = "git"
 url = "https://github.com/PrivateAIM/python-sdk.git"
 reference = "0.5.0"
-resolved_reference = "52fb06a132df6c6ec7c7dc838d66a2737bae768a"
+resolved_reference = "4636e7513b854c010871a8121aa4f3f945479c88"
 
 [[package]]
 name = "h11"
