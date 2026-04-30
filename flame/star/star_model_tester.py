@@ -25,15 +25,25 @@ class StarModelTester:
                  sensitivity: Optional[float] = None,
                  result_filepath: Optional[Union[str, list[str]]] = None) -> None:
         num_splits = len(data_splits)
-        if node_roles is None:
-            node_roles = ['default' for _ in range(len(data_splits))]
-        participant_ids = [str(uuid.uuid4()) for _ in range(len(node_roles) + 1)]
+        self.test_input(data_splits[0])
+        participants = []
+        if node_roles is not None and len(data_splits) != len(data_splits):
+            raise ValueError(f"Length of node_roles ({len(node_roles)}) must be equal to length of data_splits "
+                             f"({len(data_splits)}), if node_roles is provided.")
+        for i in range(len(data_splits) + 1):
+            participant_id = str(uuid.uuid4())
+            participant_role = ('default' if i < len(data_splits) else 'aggregator') \
+                if node_roles is None else \
+                (node_roles[i] if i < len(node_roles) else 'aggregator')
+            participants.append({'id': participant_id, 'role': participant_role})
 
         threads = []
         thread_errors = {}
         results_queue = []
         MockFlameCoreSDK.stop_event = []  # shared stop event for all threads in case of failure in any thread
-        for i, participant_id in enumerate(participant_ids):
+        for i, participant in enumerate(participants):
+            participant_id = participant['id']
+            participant_role = participant['role']
             test_kwargs = {
                 'analyzer': analyzer,
                 'aggregator': aggregator,
@@ -47,9 +57,9 @@ class StarModelTester:
                 'test_mode': True,
                 'test_kwargs': {f'{data_type}_data': data_splits[i] if i < num_splits else None,
                                 'node_id': participant_id,
-                                'aggregator_id': participant_ids[-1],
-                                'participant_ids': [participant_ids[j] for j in range(num_splits + 1) if i != j],
-                                'role': node_roles[i] if i < num_splits else 'aggregator',
+                                'aggregator_id': participants[-1]['id'],
+                                'participants': [part for j, part in enumerate(participants) if i != j],
+                                'role': participant_role,
                                 'analysis_id': "analysis_id",
                                 'project_id': "project_id"
                                 }
@@ -69,7 +79,7 @@ class StarModelTester:
                 except Exception:
                     stop_event = MockFlameCoreSDK.stop_event
                     if not stop_event:
-                        stack_trace = traceback.format_exc()#.replace('\n', '\\n').replace('\t', '\\t')
+                        stack_trace = traceback.format_exc()
                         thread_errors[(kwargs['test_kwargs']['role'],
                                        kwargs['test_kwargs']['node_id'])] = f"\033[31m{stack_trace}\033[0m"
                         stop_event.append(kwargs['test_kwargs']['node_id'])
@@ -99,6 +109,40 @@ class StarModelTester:
             for (role, node_id), error in thread_errors.items():
                 print(f"\t{(role if role != 'default' else 'analyzer').capitalize()} {node_id}: {error}")
 
+    @staticmethod
+    def test_input(data: Any) -> None:
+        is_list = isinstance(data, list)
+        try:
+            contains_ds = len(data) != 0
+        except TypeError:
+            contains_ds = False
+        try:
+            contains_data = isinstance(data[0], dict)
+        except TypeError:
+            contains_data = False
+        except KeyError:
+            contains_data = False
+        if (not is_list) or (not contains_ds) or (not contains_data):
+            print("\033[93mWarning! Data readied in FLAME's architecture will always be a list of dictionaries at "
+                  "every node.\n\tHere, each dictionary corresponds to a datasource within the node (ex. if multiple "
+                  "s3-buckets are connected to a single analysis).\n\tThe dictionary items, depending on whether you "
+                  "are accessing s3 or fhir data, either each correspond to a dataset in the datasource for s3 or a "
+                  "fhir bundle for fhir.\n\t\t* For s3, the items contain the dataset names as keys and the datasets "
+                  "in bytes format as values.\n\t\t* For fhir, the items contain the queries used to retrieve the "
+                  "bundles as keys and the bundles as dictionaries as values.\nTo summarize: You see this warning "
+                  "because the data used for testing here is not in line with this format, which may result in your "
+                  "analysis working locally during testing, but not in the actual architecture.\nIn order to get rid "
+                  "of this warning make sure your data fulfills the following criteria, and your analysis accommodates "
+                  "this input format:\033[0m")
+            if not is_list:
+                print("\033[93m\t* Format your splits as lists.\033[0m")
+            if not contains_ds:
+                print("\033[93m\t* Fill your datasource lists with data.\033[0m")
+            if not contains_data:
+                print("\033[93m\t* Ensure your data is set as dictionaries containing datasets (dataset names as keys, "
+                      "and the datasets as values (bytes format for s3, fhir bundles for fhir)).\033[0m")
+        else:
+            pass
 
     @staticmethod
     def write_result(result: Any,
