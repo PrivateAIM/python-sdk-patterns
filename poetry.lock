@@ -251,7 +251,7 @@ uvicorn = "^0.27.1"
 type = "git"
 url = "https://github.com/PrivateAIM/python-sdk.git"
 reference = "canary"
-resolved_reference = "53aee4ea191f937d73fc244bfe295e4255d3ab75"
+resolved_reference = "6f3a420c46118dee19aee4a8e26a016bfc60f1ed"
 
 [[package]]
 name = "h11"
