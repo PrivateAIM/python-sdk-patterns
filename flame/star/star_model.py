@@ -90,6 +90,7 @@ class StarModel:
             while not aggregator.finished:  # (**)
                 # Await intermediate results
                 self.flame.flame_log("known msg ids (before): " + str(self.flame._message_broker_api.message_broker_client.list_of_known_message_ids))
+                self.flame.flame_log(f"Awaiting intermediate results...", log_type='info')
                 result_dict = self.flame.await_intermediate_data(analyzers)
 
                 # Aggregate results
@@ -105,6 +106,7 @@ class StarModel:
                     aggregator.node_finished()      # LOOP BREAK
                 else:
                     # Send aggregated result to analyzers
+                    self.flame.flame_log(f"Sending aggregated results...", log_type='info')
                     self.flame.send_intermediate_data(analyzers, agg_res)
                     self.flame.flame_log("known msg ids (after): " + str(self.flame._message_broker_api.message_broker_client.list_of_known_message_ids))
         else:
