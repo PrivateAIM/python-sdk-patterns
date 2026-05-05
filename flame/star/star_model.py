@@ -2,6 +2,7 @@ from enum import Enum
 from typing import Optional, Type, Literal, Union, Any
 
 from flamesdk import FlameCoreSDK
+from flamesdk.resources.utils.constants import LogTypeLiteral
 from flame.star.aggregator_client import Aggregator
 from flame.star.analyzer_client import Analyzer
 from flame.utils.mock_flame_core import MockFlameCoreSDK
@@ -42,14 +43,14 @@ class StarModel:
 
         if self._is_analyzer():
             self.flame.flame_log(f"Analyzer {test_kwargs['node_id'] + ' ' if self.test_mode else ''}started",
-                                 log_type='info')
+                                 log_type=LogTypeLiteral.INFO.value)
             self._start_analyzer(analyzer,
                                  data_type=data_type,
                                  query=query,
                                  simple_analysis=simple_analysis,
                                  analyzer_kwargs=analyzer_kwargs)
         elif self._is_aggregator():
-            self.flame.flame_log("Aggregator started", log_type='info')
+            self.flame.flame_log("Aggregator started", log_type=LogTypeLiteral.INFO.value)
             self._start_aggregator(aggregator,
                                    simple_analysis=simple_analysis,
                                    output_type=output_type,
@@ -58,7 +59,7 @@ class StarModel:
         else:
             raise BrokenPipeError("Has to be either analyzer or aggregator")
         if not self.test_mode:
-            self.flame.flame_log("Analysis finished!", log_type='info')
+            self.flame.flame_log("Analysis finished!", log_type=LogTypeLiteral.INFO.value)
             while True:
                 pass  # keep the node alive to allow for orderly shutdown
 
@@ -89,8 +90,9 @@ class StarModel:
 
             while not aggregator.finished:  # (**)
                 # Await intermediate results
-                self.flame.flame_log("known msg ids (before): " + str(self.flame._message_broker_api.message_broker_client.list_of_known_message_ids))
-                self.flame.flame_log(f"Awaiting intermediate results...", log_type='info')
+                self.flame.flame_log(f"known msg ids (before): {self.flame._message_broker_api.message_broker_client.list_of_known_message_ids}",
+                                     log_type=LogTypeLiteral.DEBUG.value)
+                self.flame.flame_log(f"Awaiting intermediate results...", log_type=LogTypeLiteral.INFO.value)
                 result_dict = self.flame.await_intermediate_data(analyzers)
 
                 # Aggregate results
@@ -98,17 +100,20 @@ class StarModel:
 
                 if converged:
                     if not self.test_mode:
-                        self.flame.flame_log("Submitting final results...", log_type='info', end='')
+                        self.flame.flame_log("Submitting final results...",
+                                             log_type=LogTypeLiteral.INFO.value,
+                                             halt_submission=True)
                     response = self.flame.submit_final_result(agg_res, output_type, multiple_results)
                     if not self.test_mode:
-                        self.flame.flame_log(f"success (response={response})", log_type='info')
+                        self.flame.flame_log(f"success (response={response})", log_type=LogTypeLiteral.INFO.value)
                     self.flame.analysis_finished()
                     aggregator.node_finished()      # LOOP BREAK
                 else:
                     # Send aggregated result to analyzers
-                    self.flame.flame_log(f"Sending aggregated results...", log_type='info')
+                    self.flame.flame_log(f"Sending aggregated results...", log_type=LogTypeLiteral.INFO.value)
                     self.flame.send_intermediate_data(analyzers, agg_res)
-                    self.flame.flame_log("known msg ids (after): " + str(self.flame._message_broker_api.message_broker_client.list_of_known_message_ids))
+                    self.flame.flame_log(f"known msg ids (after): {self.flame._message_broker_api.message_broker_client.list_of_known_message_ids}",
+                                         log_type=LogTypeLiteral.DEBUG.value)
         else:
             raise BrokenPipeError(_ERROR_MESSAGES.IS_INCORRECT_CLASS.value)
 
@@ -132,19 +137,16 @@ class StarModel:
 
             # Get data
             self._get_data(query=query, data_type=data_type)
-            self.flame.flame_log(f"\tData extracted: {str(self.data)[:100]}", log_type='info')
 
             # Check converged status on Hub
             while not analyzer.finished:  # (**)
                 # Analyze data
                 analyzer_res = analyzer.analyze(data=self.data)
                 # Send intermediate result to aggregator
-                self.flame.flame_log("Sending intermediate results")
                 self.flame.send_intermediate_data([aggregator_id], analyzer_res)
 
                 # If not converged await aggregated result, loop back to (**)
                 if not simple_analysis:
-                    self.flame.flame_log("Awaiting aggregated results")
                     analyzer.latest_result = self.flame.await_intermediate_data([aggregator_id])[aggregator_id]
                     if self.flame.config.finished:
                         analyzer.node_finished()
@@ -157,23 +159,27 @@ class StarModel:
         if self._is_analyzer():
             aggregator_id = self.flame.get_aggregator_id()
             if not self.test_mode:
-                self.flame.flame_log("Awaiting contact with aggregator node...", log_type='info')
+                self.flame.flame_log("Awaiting contact with aggregator node...",
+                                     log_type=LogTypeLiteral.INFO.value)
             ready_check_dict = self.flame.ready_check([aggregator_id])
 
             if not ready_check_dict[aggregator_id]:
                 raise BrokenPipeError("Could not contact aggregator")
 
             if not self.test_mode:
-                self.flame.flame_log("Awaiting contact with aggregator node...success", log_type='info')
+                self.flame.flame_log("Awaiting contact with aggregator node...success",
+                                     log_type=LogTypeLiteral.INFO.value)
         else:
             analyzer_ids = self.flame.get_participant_ids()
             if not self.test_mode:
-                self.flame.flame_log("Awaiting contact with analyzer nodes...", log_type='info')
+                self.flame.flame_log("Awaiting contact with analyzer nodes...",
+                                     log_type=LogTypeLiteral.INFO.value)
             ready_check_dict = self.flame.ready_check(analyzer_ids)
             if not all(ready_check_dict.values()):
                 raise BrokenPipeError("Could not contact all analyzers")
             if not self.test_mode:
-                self.flame.flame_log("Awaiting contact with analyzer nodes...success", log_type='info')
+                self.flame.flame_log("Awaiting contact with analyzer nodes...success",
+                                     log_type=LogTypeLiteral.INFO.value)
 
     def _get_data(self,
                   data_type: Literal['fhir', 's3'],

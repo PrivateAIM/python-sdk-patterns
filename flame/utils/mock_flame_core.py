@@ -1,5 +1,4 @@
 import time
-from enum import Enum
 from httpx import AsyncClient
 from io import StringIO
 from typing import Any, Literal, Optional, Union
@@ -9,30 +8,20 @@ from opendp.domains import atom_domain
 from opendp.measurements import make_laplace
 from opendp.metrics import absolute_distance
 
+from flamesdk.resources.utils.constants import LogTypeLiteral
+
 
 _REQUIRED_KWARGS = ['node_id', 'aggregator_id', 'role', 'participants']
 
 
-class HUB_LOG_LITERALS(Enum):
-    info_log = 'info'
-    notice_message = 'notice'
-    debug_log = 'debug'
-    warning_log = 'warn'
-    alert_log = 'alert'
-    emergency_log = 'emerg'
-    error_code = 'error'
-    critical_error_code = 'crit'
-
-
-_LOG_TYPE_LITERALS = {'info': (HUB_LOG_LITERALS.info_log.value, 36),
-                      'normal': (HUB_LOG_LITERALS.info_log.value, 39),
-                      'notice': (HUB_LOG_LITERALS.notice_message.value, 32),
-                      'debug': (HUB_LOG_LITERALS.debug_log.value, 90),
-                      'warning': (HUB_LOG_LITERALS.warning_log.value, 33),
-                      'alert': (HUB_LOG_LITERALS.alert_log.value, 91),
-                      'emergency': (HUB_LOG_LITERALS.emergency_log.value, 35),
-                      'error': (HUB_LOG_LITERALS.error_code.value, 31),
-                      'critical-error': (HUB_LOG_LITERALS.critical_error_code.value, 41)}
+_LOG_TYPE_LITERALS_COLORS = {LogTypeLiteral.INFO.value: 36,
+                             LogTypeLiteral.NOTICE.value: 32,
+                             LogTypeLiteral.DEBUG.value: 90,
+                             LogTypeLiteral.WARNING.value: 33,
+                             LogTypeLiteral.ALERT.value: 91,
+                             LogTypeLiteral.EMERGENCY.value: 35,
+                             LogTypeLiteral.ERROR.value: 31,
+                             LogTypeLiteral.CRITICAL.value: 41}
 
 
 class MockConfig:
@@ -131,13 +120,13 @@ class MockFlameCoreSDK:
                   sep: str = ' ',
                   end: str = '\n',
                   file: object = None,
-                  log_type: str = 'normal',
+                  log_type: str = LogTypeLiteral.INFO.value,
                   suppress_head: bool = False,
                   halt_submission: bool = False) -> None:
-        if log_type in _LOG_TYPE_LITERALS.keys():
-            color = str(_LOG_TYPE_LITERALS[log_type][1])
+        if log_type in _LOG_TYPE_LITERALS_COLORS.keys():
+            color = str(_LOG_TYPE_LITERALS_COLORS[log_type])
         else:
-            color = str(_LOG_TYPE_LITERALS['normal'][1])
+            color = str(_LOG_TYPE_LITERALS_COLORS[LogTypeLiteral.INFO.value])
         self.logger[self.get_id()][1] += f"\033[{color}m{msg}\033[0m{end}"
 
     def declare_log_types(self, new_log_types: dict[str, str]) -> None:
@@ -150,10 +139,12 @@ class MockFlameCoreSDK:
         if isinstance(progress, float):
             progress = int(progress)
         if not (0 <= progress <= 100):
-            self.flame_log(msg=f"Invalid progress: {progress} (should be a numeric value between 0 and 100).")
+            self.flame_log(msg=f"Invalid progress: {progress} (should be a numeric value between 0 and 100).",
+                           log_type=LogTypeLiteral.WARNING.value)
         elif self.progress > progress:
             self.flame_log(msg=f"Progress value needs to be higher to current progress (i.e. only register progress, "
-                               f"if actual progress has been made).")
+                               f"if actual progress has been made).",
+                           log_type=LogTypeLiteral.WARNING.value)
         else:
             self.progress = progress
 
@@ -277,7 +268,7 @@ class MockFlameCoreSDK:
                     result = laplace_mech(float(result))
                 else:
                     self.flame_log("Given result type is not supported for local DP -> DP step will be skipped.",
-                                   log_type='warning')
+                                   log_type=LogTypeLiteral.WARNING.value)
             self.final_results_storage = result
             self.__pop_logs__()
             return {"result": "submitted"}
@@ -352,7 +343,7 @@ class MockFlameCoreSDK:
     def __pop_logs__(self, failure_message: bool = False) -> None:
         print(f"--- Starting Iteration {self.__get_iteration__()} ---")
         if failure_message:
-            self.flame_log("Exception was raised (see Stacktrace)!", log_type='error')
+            self.flame_log("Exception was raised (see Stacktrace)!", log_type=LogTypeLiteral.ERROR.value)
         for k, v in self.logger.items():
             role, log = self.logger[k]
             print(f"Logs for {'Analyzer' if role == 'default' else role.capitalize()} {k}:")

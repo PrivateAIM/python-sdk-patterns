@@ -1,6 +1,7 @@
 from typing import Optional, Type, Literal, Union, Any
 
 from flamesdk import FlameCoreSDK
+from flamesdk.resources.utils.constants import LogTypeLiteral
 from flame.star.aggregator_client import Aggregator
 from flame.star.analyzer_client import Analyzer
 from flame.star.star_model import StarModel, _ERROR_MESSAGES
@@ -69,13 +70,12 @@ class StarLocalDPModel(StarModel):
 
                 # Aggregate results
                 agg_res, converged = aggregator.aggregate(list(result_dict.values()), simple_analysis)
-                self.flame.flame_log(f"Aggregated results: {str(agg_res)[:100]}")
 
                 if converged:
                     if not self.test_mode:
                         self.flame.flame_log("Submitting final results using differential privacy...",
-                                             log_type='info',
-                                             end='')
+                                             log_type=LogTypeLiteral.INFO.value,
+                                             halt_submission=True)
                     if aggregator.delta_criteria and (self.epsilon is not None) and (self.sensitivity is not None):
                         local_dp = {"epsilon": self.epsilon, "sensitivity": self.sensitivity}
                     else:
@@ -83,10 +83,10 @@ class StarLocalDPModel(StarModel):
                     if self.test_mode and (local_dp is not None):
                         self.flame.flame_log(f"\tTest mode: Would apply local DP with epsilon={local_dp['epsilon']} "
                                              f"and sensitivity={local_dp['sensitivity']}",
-                                             log_type='info')
+                                             log_type=LogTypeLiteral.INFO.value)
                     response = self.flame.submit_final_result(agg_res, output_type, multiple_results, local_dp=local_dp)
                     if not self.test_mode:
-                        self.flame.flame_log(f"success (response={response})", log_type='info')
+                        self.flame.flame_log(f"success (response={response})", log_type=LogTypeLiteral.INFO.value)
                     self.flame.analysis_finished()
                     aggregator.node_finished()  # LOOP BREAK
                 else:
