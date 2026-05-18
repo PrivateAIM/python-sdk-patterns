@@ -256,7 +256,8 @@ class MockFlameCoreSDK:
                             result: Any,
                             output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                             multiple_results: bool = False,
-                            local_dp: Optional[dict] = None) -> Union[dict[str, str], list[dict[str, str]]]:
+                            local_dp: Optional[dict] = None,
+                            filename: Optional[Union[str, list[str]]] = None) -> Union[dict[str, str], list[dict[str, str]]]:
         if self.get_id() == self.get_aggregator_id():
             if local_dp is not None:
                 if type(result) in [int, float]:

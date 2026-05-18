@@ -29,6 +29,7 @@ class StarModel:
                  simple_analysis: bool = True,
                  output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                  multiple_results: bool = False,
+                 filename: Optional[Union[str, list[str]]] = None,
                  analyzer_kwargs: Optional[dict] = None,
                  aggregator_kwargs: Optional[dict] = None,
                  test_mode: bool = False,
@@ -55,6 +56,7 @@ class StarModel:
                                    simple_analysis=simple_analysis,
                                    output_type=output_type,
                                    multiple_results=multiple_results,
+                                   filename=filename,
                                    aggregator_kwargs=aggregator_kwargs)
         else:
             raise BrokenPipeError("Has to be either analyzer or aggregator")
@@ -74,6 +76,7 @@ class StarModel:
                           simple_analysis: bool = True,
                           output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                           multiple_results: bool = False,
+                          filename: Optional[Union[str, list[str]]] = None,
                           aggregator_kwargs: Optional[dict] = None) -> None:
         if issubclass(aggregator, Aggregator):
             # init custom aggregator subclass
@@ -103,7 +106,8 @@ class StarModel:
                         self.flame.flame_log("Submitting final results...",
                                              log_type=LogTypeLiteral.INFO.value,
                                              halt_submission=True)
-                    response = self.flame.submit_final_result(agg_res, output_type, multiple_results)
+                    response = self.flame.submit_final_result(agg_res, output_type, multiple_results,
+                                                              filename=filename)
                     if not self.test_mode:
                         self.flame.flame_log(f"success (response={response})", log_type=LogTypeLiteral.INFO.value)
                     self.flame.analysis_finished()
