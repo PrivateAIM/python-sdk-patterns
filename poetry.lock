@@ -250,7 +250,7 @@ uvicorn = "^0.27.1"
 [package.source]
 type = "git"
 url = "https://github.com/PrivateAIM/python-sdk.git"
-reference = "final_results_fielname"
+reference = "canary"
 resolved_reference = "7220907bc1e8b877043856df95d30e79b521d205"
 
 [[package]]
@@ -1139,4 +1139,4 @@ dev = ["pytest", "setuptools"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9,<4.0"
-content-hash = "b2ba28e4c2506adc558acb9e338399311fe51a06596c8fd3ef61b97747137061"
+content-hash = "ad5e050bb88c722dd2fc8e5aaac3f3263f709d2b47ecb1d7409aebd861a6e1de"
