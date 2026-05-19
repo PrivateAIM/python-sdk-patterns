@@ -87,8 +87,11 @@ class StarLocalDPModel(StarModel):
                         self.flame.flame_log(f"\tTest mode: Would apply local DP with epsilon={local_dp['epsilon']} "
                                              f"and sensitivity={local_dp['sensitivity']}",
                                              log_type=LogTypeLiteral.INFO.value)
-                    response = self.flame.submit_final_result(agg_res, output_type, multiple_results,
-                                                              local_dp=local_dp, filename=filename)
+                    response = self.flame.submit_final_result(agg_res,
+                                                              output_type,
+                                                              multiple_results,
+                                                              local_dp=local_dp,
+                                                              filename=filename)
                     if not self.test_mode:
                         self.flame.flame_log(f"success (response={response})", log_type=LogTypeLiteral.INFO.value)
                     self.flame.analysis_finished()

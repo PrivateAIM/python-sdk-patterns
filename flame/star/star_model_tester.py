@@ -19,11 +19,11 @@ class StarModelTester:
                  simple_analysis: bool = True,
                  output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                  multiple_results: bool = False,
+                 filename: Optional[Union[str, list[str]]] = None,
                  analyzer_kwargs: Optional[dict] = None,
                  aggregator_kwargs: Optional[dict] = None,
                  epsilon: Optional[float] = None,
-                 sensitivity: Optional[float] = None,
-                 result_filepath: Optional[Union[str, list[str]]] = None) -> None:
+                 sensitivity: Optional[float] = None) -> None:
         num_splits = len(data_splits)
         self.test_input(data_splits[0])
         participants = []
@@ -103,7 +103,7 @@ class StarModelTester:
 
         # write final results
         if results_queue:
-            self.write_result(results_queue[0], output_type, result_filepath, multiple_results)
+            self.write_result(results_queue[0], output_type, filename, multiple_results)
         else:
             print("No results to write. All threads failed with errors:")
             for (role, node_id), error in thread_errors.items():
@@ -147,12 +147,12 @@ class StarModelTester:
     @staticmethod
     def write_result(result: Any,
                      output_type: Union[Literal['str', 'bytes', 'pickle'], list],
-                     result_filepath: Optional[Union[str, list[str]]] = None,
+                     filename: Optional[Union[str, list[str]]] = None,
                      multiple_results: bool = False) -> None:
         if multiple_results:
             if isinstance(result, list) or isinstance(result, tuple):
-                if isinstance(result_filepath, list) and (len(result_filepath) != len(result)):
-                    print(f"Warning! Inconsistent number of result_filepaths (len={result_filepath}) "
+                if isinstance(filename, list) and (len(filename) != len(result)):
+                    print(f"Warning! Inconsistent number of filenames (len={filename}) "
                           f"and results (len={len(result)}) -> multiple_results will be ignored.")
                     multi_iterable_results = False
                 else:
@@ -164,20 +164,21 @@ class StarModelTester:
         else:
             multi_iterable_results = False
 
-        if result_filepath is not None:
+        if filename is not None:
             if not multi_iterable_results:
                 result = [result]
-                result_filepath = [result_filepath]
+                if not isinstance(filename, list):
+                    filename = [filename]
 
             for i, res in enumerate(result):
-                if isinstance(result_filepath, list):
-                    current_path = result_filepath[i]
+                if isinstance(filename, list):
+                    current_path = filename[i]
                 else:
-                    if '.' in result_filepath:
-                        result_filename, result_extension = result_filepath.rsplit('.', 1)
-                        current_path = f"{result_filename}_{i + 1}.{result_extension}"
+                    if '.' in filename:
+                        result_filename, result_extension = filename.rsplit('.', 1)
+                        current_path = f"{filename}_{i + 1}.{result_extension}"
                     else:
-                        current_path = f"{result_filepath}_{i + 1}"
+                        current_path = f"{filename}_{i + 1}"
                 if isinstance(output_type, list) and (len(output_type) == len(result)):
                     out_type = output_type[i]
                 else:
