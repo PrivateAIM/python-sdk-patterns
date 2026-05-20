@@ -30,6 +30,7 @@ class StarModel:
                  output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                  multiple_results: bool = False,
                  filename: Optional[Union[str, list[str]]] = None,
+                 stream_log_level: int = 20,
                  analyzer_kwargs: Optional[dict] = None,
                  aggregator_kwargs: Optional[dict] = None,
                  test_mode: bool = False,
@@ -40,7 +41,7 @@ class StarModel:
             self.flame = MockFlameCoreSDK(test_kwargs=test_kwargs)
         else:
             self.test_kwargs = None
-            self.flame = FlameCoreSDK()
+            self.flame = FlameCoreSDK(stream_log_level=stream_log_level)
 
         if self._is_analyzer():
             self.flame.flame_log(f"Analyzer {test_kwargs['node_id'] + ' ' if self.test_mode else ''}started",
