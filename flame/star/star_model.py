@@ -2,6 +2,7 @@ from enum import Enum
 from typing import Optional, Type, Literal, Union, Any
 
 from flamesdk import FlameCoreSDK
+from flamesdk.resources.utils.constants import LogTypeLiteral
 from flame.star.aggregator_client import Aggregator
 from flame.star.analyzer_client import Analyzer
 from flame.utils.mock_flame_core import MockFlameCoreSDK
@@ -28,6 +29,8 @@ class StarModel:
                  simple_analysis: bool = True,
                  output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                  multiple_results: bool = False,
+                 filename: Optional[Union[str, list[str]]] = None,
+                 stream_log_level: int = 20,
                  analyzer_kwargs: Optional[dict] = None,
                  aggregator_kwargs: Optional[dict] = None,
                  test_mode: bool = False,
@@ -38,27 +41,28 @@ class StarModel:
             self.flame = MockFlameCoreSDK(test_kwargs=test_kwargs)
         else:
             self.test_kwargs = None
-            self.flame = FlameCoreSDK()
+            self.flame = FlameCoreSDK(stream_log_level=stream_log_level)
 
         if self._is_analyzer():
             self.flame.flame_log(f"Analyzer {test_kwargs['node_id'] + ' ' if self.test_mode else ''}started",
-                                 log_type='info')
+                                 log_type=LogTypeLiteral.INFO.value)
             self._start_analyzer(analyzer,
                                  data_type=data_type,
                                  query=query,
                                  simple_analysis=simple_analysis,
                                  analyzer_kwargs=analyzer_kwargs)
         elif self._is_aggregator():
-            self.flame.flame_log("Aggregator started", log_type='info')
+            self.flame.flame_log("Aggregator started", log_type=LogTypeLiteral.INFO.value)
             self._start_aggregator(aggregator,
                                    simple_analysis=simple_analysis,
                                    output_type=output_type,
                                    multiple_results=multiple_results,
+                                   filename=filename,
                                    aggregator_kwargs=aggregator_kwargs)
         else:
             raise BrokenPipeError("Has to be either analyzer or aggregator")
         if not self.test_mode:
-            self.flame.flame_log("Analysis finished!", log_type='info')
+            self.flame.flame_log("Analysis finished!", log_type=LogTypeLiteral.INFO.value)
             while True:
                 pass  # keep the node alive to allow for orderly shutdown
 
@@ -73,6 +77,7 @@ class StarModel:
                           simple_analysis: bool = True,
                           output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                           multiple_results: bool = False,
+                          filename: Optional[Union[str, list[str]]] = None,
                           aggregator_kwargs: Optional[dict] = None) -> None:
         if issubclass(aggregator, Aggregator):
             # init custom aggregator subclass
@@ -89,6 +94,7 @@ class StarModel:
 
             while not aggregator.finished:  # (**)
                 # Await intermediate results
+                self.flame.flame_log(f"Awaiting intermediate results...", log_type=LogTypeLiteral.INFO.value)
                 result_dict = self.flame.await_intermediate_data(analyzers)
 
                 # Aggregate results
@@ -96,14 +102,18 @@ class StarModel:
 
                 if converged:
                     if not self.test_mode:
-                        self.flame.flame_log("Submitting final results...", log_type='info', end='')
-                    response = self.flame.submit_final_result(agg_res, output_type, multiple_results)
+                        self.flame.flame_log("Submitting final results...",
+                                             log_type=LogTypeLiteral.INFO.value,
+                                             halt_submission=True)
+                    response = self.flame.submit_final_result(agg_res, output_type, multiple_results,
+                                                              filename=filename)
                     if not self.test_mode:
-                        self.flame.flame_log(f"success (response={response})", log_type='info')
+                        self.flame.flame_log(f"success (response={response})", log_type=LogTypeLiteral.INFO.value)
                     self.flame.analysis_finished()
                     aggregator.node_finished()      # LOOP BREAK
                 else:
                     # Send aggregated result to analyzers
+                    self.flame.flame_log(f"Sending aggregated results...", log_type=LogTypeLiteral.INFO.value)
                     self.flame.send_intermediate_data(analyzers, agg_res)
         else:
             raise BrokenPipeError(_ERROR_MESSAGES.IS_INCORRECT_CLASS.value)
@@ -128,7 +138,6 @@ class StarModel:
 
             # Get data
             self._get_data(query=query, data_type=data_type)
-            self.flame.flame_log(f"\tData extracted: {str(self.data)[:100]}", log_type='info')
 
             # Check converged status on Hub
             while not analyzer.finished:  # (**)
@@ -151,23 +160,27 @@ class StarModel:
         if self._is_analyzer():
             aggregator_id = self.flame.get_aggregator_id()
             if not self.test_mode:
-                self.flame.flame_log("Awaiting contact with aggregator node...", log_type='info')
+                self.flame.flame_log("Awaiting contact with aggregator node...",
+                                     log_type=LogTypeLiteral.INFO.value)
             ready_check_dict = self.flame.ready_check([aggregator_id])
 
             if not ready_check_dict[aggregator_id]:
                 raise BrokenPipeError("Could not contact aggregator")
 
             if not self.test_mode:
-                self.flame.flame_log("Awaiting contact with aggregator node...success", log_type='info')
+                self.flame.flame_log("Awaiting contact with aggregator node...success",
+                                     log_type=LogTypeLiteral.INFO.value)
         else:
             analyzer_ids = self.flame.get_participant_ids()
             if not self.test_mode:
-                self.flame.flame_log("Awaiting contact with analyzer nodes...", log_type='info')
+                self.flame.flame_log("Awaiting contact with analyzer nodes...",
+                                     log_type=LogTypeLiteral.INFO.value)
             ready_check_dict = self.flame.ready_check(analyzer_ids)
             if not all(ready_check_dict.values()):
                 raise BrokenPipeError("Could not contact all analyzers")
             if not self.test_mode:
-                self.flame.flame_log("Awaiting contact with analyzer nodes...success", log_type='info')
+                self.flame.flame_log("Awaiting contact with analyzer nodes...success",
+                                     log_type=LogTypeLiteral.INFO.value)
 
     def _get_data(self,
                   data_type: Literal['fhir', 's3'],
