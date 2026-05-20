@@ -77,7 +77,8 @@ class StarModelTester:
                         flame = StarModel(**kwargs).flame
                     else:
                         flame = StarLocalDPModel(**kwargs).flame
-                    results_queue.append(flame.final_results_storage)
+                    if kwargs['test_kwargs']['role'] == 'aggregator':
+                        results_queue.append(flame.final_results_storage)
                 except Exception:
                     stop_event = MockFlameCoreSDK.stop_event
                     if not stop_event:
@@ -178,7 +179,7 @@ class StarModelTester:
                 else:
                     if '.' in filename:
                         result_filename, result_extension = filename.rsplit('.', 1)
-                        current_path = f"{filename}_{i + 1}.{result_extension}"
+                        current_path = f"{result_filename}_{i + 1}.{result_extension}"
                     else:
                         current_path = f"{filename}_{i + 1}"
                 if isinstance(output_type, list) and (len(output_type) == len(result)):

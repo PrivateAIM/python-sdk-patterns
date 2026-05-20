@@ -94,8 +94,6 @@ class StarModel:
 
             while not aggregator.finished:  # (**)
                 # Await intermediate results
-                self.flame.flame_log(f"known msg ids (before): {self.flame._message_broker_api.message_broker_client.list_of_known_message_ids}",
-                                     log_type=LogTypeLiteral.DEBUG.value)
                 self.flame.flame_log(f"Awaiting intermediate results...", log_type=LogTypeLiteral.INFO.value)
                 result_dict = self.flame.await_intermediate_data(analyzers)
 
@@ -117,8 +115,6 @@ class StarModel:
                     # Send aggregated result to analyzers
                     self.flame.flame_log(f"Sending aggregated results...", log_type=LogTypeLiteral.INFO.value)
                     self.flame.send_intermediate_data(analyzers, agg_res)
-                    self.flame.flame_log(f"known msg ids (after): {self.flame._message_broker_api.message_broker_client.list_of_known_message_ids}",
-                                         log_type=LogTypeLiteral.DEBUG.value)
         else:
             raise BrokenPipeError(_ERROR_MESSAGES.IS_INCORRECT_CLASS.value)
 
