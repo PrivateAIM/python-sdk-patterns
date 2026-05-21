@@ -3,10 +3,15 @@ from httpx import AsyncClient
 from io import StringIO
 from typing import Any, Literal, Optional, Union
 
-from opendp.mod import enable_features
-from opendp.domains import atom_domain
-from opendp.measurements import make_laplace
-from opendp.metrics import absolute_distance
+try:
+    from opendp.mod import enable_features
+    from opendp.domains import atom_domain
+    from opendp.measurements import make_laplace
+    from opendp.metrics import absolute_distance
+    USE_OPENDP = True
+except ImportError:
+    USE_OPENDP = False
+    
 
 from flamesdk.resources.utils.constants import LogTypeLiteral
 
@@ -261,12 +266,16 @@ class MockFlameCoreSDK:
         if self.get_id() == self.get_aggregator_id():
             if local_dp is not None:
                 if type(result) in [int, float]:
-                    enable_features("contrib")
-                    scale = local_dp['sensitivity'] / local_dp['epsilon']  # Laplace scale parameter
-                    laplace_mech = make_laplace(input_domain=atom_domain(T=float),
-                                                input_metric=absolute_distance(T=float),
-                                                scale=scale)
-                    result = laplace_mech(float(result))
+                    if USE_OPENDP:
+                        enable_features("contrib")
+                        scale = local_dp['sensitivity'] / local_dp['epsilon']  # Laplace scale parameter
+                        laplace_mech = make_laplace(input_domain=atom_domain(T=float),
+                                                    input_metric=absolute_distance(T=float),
+                                                    scale=scale)
+                        result = laplace_mech(float(result))
+                    else:
+                        self.flame_log("The 'mockdp' dependency group is not installed. Local DP will not be applied to the result.",
+                                       log_type=LogTypeLiteral.WARNING.value)
                 else:
                     self.flame_log("Given result type is not supported for local DP -> DP step will be skipped.",
                                    log_type=LogTypeLiteral.WARNING.value)
