@@ -173,7 +173,7 @@ class HaltaAnalyzer(StarAnalyzer):
         )
         p_levels = 100 / MAX_ITERATIONS
         self.flame.set_progress(self.num_iterations * p_levels if 0 < self.num_iterations * p_levels < 100 else
-                                99.9 if self.num_iterations * p_levels == 100 else 0.1)
+                                99.9 if self.num_iterations * p_levels == 100 else 1)
 
         return {
             "node_id": node_id,
@@ -295,6 +295,11 @@ class HaltaAggregator(StarAggregator):
             "per_node": per_node,
             "iteration": self.num_iterations,
         }
+
+        p_levels = 100 / MAX_ITERATIONS
+        self.flame.set_progress(self.num_iterations * p_levels if 0 < self.num_iterations * p_levels < 100 else
+                                99.9 if self.num_iterations * p_levels == 100 else 1)
+
         if not self.has_converged(result, self.latest_result):
             return result
         else:
@@ -311,9 +316,6 @@ class HaltaAggregator(StarAggregator):
             return results
 
     def has_converged(self, result, last_result) -> bool:
-        p_levels = 100 / MAX_ITERATIONS
-        self.flame.set_progress(self.num_iterations * p_levels if 0 < self.num_iterations * p_levels < 100 else
-                                99.9 if self.num_iterations * p_levels == 100 else 0.1)
         it = self.num_iterations
 
         if last_result is not None and "svm_coef" in last_result:
