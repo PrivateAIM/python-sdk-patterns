@@ -141,12 +141,14 @@ class MockFlameCoreSDK:
         if not (0 <= progress <= 100):
             self.flame_log(msg=f"Invalid progress: {progress} (should be a numeric value between 0 and 100).",
                            log_type=LogTypeLiteral.WARNING.value)
-        elif self.progress > progress:
+        elif self.progress >= progress:
             self.flame_log(msg=f"Progress value needs to be higher to current progress (i.e. only register progress, "
                                f"if actual progress has been made).",
                            log_type=LogTypeLiteral.WARNING.value)
         else:
             self.progress = progress
+            self.flame_log(msg=f"Current Progress ({self.get_id()}): {progress}%",
+                           log_type=LogTypeLiteral.INFO.value)
 
     def fhir_to_csv(self,
                     fhir_data: dict[str, Any],
