@@ -52,7 +52,7 @@ class MockFlameCoreSDK:
     stop_event: list[tuple[str]] = []
 
     def __init__(self, test_kwargs):
-        self.sanity_check(test_kwargs)
+        self.__sanity_check__(test_kwargs)
         self.config = MockConfig(test_kwargs)
         self.data = test_kwargs.get('fhir_data') or test_kwargs.get('s3_data')
 
@@ -67,7 +67,7 @@ class MockFlameCoreSDK:
         if node_id not in self.message_broker:
             self.message_broker[node_id] = []
 
-    def sanity_check(self, test_kwargs) -> None:
+    def __sanity_check__(self, test_kwargs) -> None:
         required_kwargs_check = all([k in test_kwargs.keys() for k in _REQUIRED_KWARGS])
         data_given = 'fhir_data' in test_kwargs.keys() or 's3_data' in test_kwargs.keys()
         if not required_kwargs_check:
