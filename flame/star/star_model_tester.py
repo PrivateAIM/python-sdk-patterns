@@ -92,7 +92,6 @@ class StarModelTester:
                         thread_errors[(kwargs['test_kwargs']['role'],
                                        kwargs['test_kwargs']['node_id'])] = (Exception("Another thread already failed, "
                                                                                        "stopping this thread as well."))
-                    return
 
             thread = threading.Thread(target=run_node)
             threads.append(thread)

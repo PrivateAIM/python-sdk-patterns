@@ -55,12 +55,13 @@ class MockFlameCoreSDK:
         self.sanity_check(test_kwargs)
         self.config = MockConfig(test_kwargs)
         self.data = test_kwargs.get('fhir_data') or test_kwargs.get('s3_data')
-        self.logger[self.get_id()] = [self.get_role(), '']
 
         self._test_kwargs = test_kwargs
         self.progress = 0
         self.incoming_message_queue = []
         self.outgoing_message_queue = []
+
+        self.logger[self.get_id()] = [self.get_role(), self.progress, '']
 
         node_id = self.get_id()
         if node_id not in self.message_broker:
@@ -119,15 +120,14 @@ class MockFlameCoreSDK:
                   msg: Union[str, bytes],
                   sep: str = ' ',
                   end: str = '\n',
-                  file: object = None,
                   log_type: str = LogTypeLiteral.INFO.value,
-                  suppress_head: bool = False,
+                  append: bool = False,
                   halt_submission: bool = False) -> None:
         if log_type in _LOG_TYPE_LITERALS_COLORS.keys():
             color = str(_LOG_TYPE_LITERALS_COLORS[log_type])
         else:
             color = str(_LOG_TYPE_LITERALS_COLORS[LogTypeLiteral.INFO.value])
-        self.logger[self.get_id()][1] += f"\033[{color}m{msg}\033[0m{end}"
+        self.logger[self.get_id()][2] += f"\033[{color}m{msg}\033[0m{end}"
 
     def declare_log_types(self, new_log_types: dict[str, str]) -> None:
         pass
@@ -147,8 +147,7 @@ class MockFlameCoreSDK:
                            log_type=LogTypeLiteral.WARNING.value)
         else:
             self.progress = progress
-            self.flame_log(msg=f"Current Progress ({self.get_id()}): {progress}%",
-                           log_type=LogTypeLiteral.INFO.value)
+            self.logger[self.get_id()][1] = progress
 
     def fhir_to_csv(self,
                     fhir_data: dict[str, Any],
@@ -273,6 +272,7 @@ class MockFlameCoreSDK:
                     self.flame_log("Given result type is not supported for local DP -> DP step will be skipped.",
                                    log_type=LogTypeLiteral.WARNING.value)
             self.final_results_storage = result
+            self.set_progress(100)
             self.__pop_logs__()
             return {"result": "submitted"}
         else:
@@ -348,9 +348,9 @@ class MockFlameCoreSDK:
         if failure_message:
             self.flame_log("Exception was raised (see Stacktrace)!", log_type=LogTypeLiteral.ERROR.value)
         for k, v in self.logger.items():
-            role, log = self.logger[k]
-            print(f"Logs for {'Analyzer' if role == 'default' else role.capitalize()} {k}:")
-            self.logger[k] = [role, '']
+            role, progress, log = v
+            print(f"Logs for {'Analyzer' if role == 'default' else role.capitalize()} {k} (Progress: {progress}%):")
+            self.logger[k] = [role, progress, '']
             print(log, end='')
         print(f"--- Ending Iteration {self.__get_iteration__()} ---\n")
         self.num_iterations.increment()
