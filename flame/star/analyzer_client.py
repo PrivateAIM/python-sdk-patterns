@@ -2,6 +2,8 @@ from abc import abstractmethod
 from typing import Any, Optional, Union
 
 from flamesdk import FlameCoreSDK
+from flamesdk.resources.utils.constants import LogTypeLiteral
+
 from flame.star.node_base_client import Node
 from flame.utils.mock_flame_core import MockFlameCoreSDK
 
@@ -15,7 +17,13 @@ class Analyzer(Node):
                              f'(expected: node_mode="default", received="{self.role}").')
 
     def analyze(self, data: list[Any]) -> Any:
-        result = self.analysis_method(data, self.latest_result)
+        try:
+            result = self.analysis_method(data, self.latest_result)
+        except Exception as e:
+            self.flame.flame_log("An Error occured during execution of the given 'analysis_method' function "
+                                 "(details available at the executing node)",
+                                 log_type=LogTypeLiteral.ERROR.value)
+            raise e
 
         self.latest_result = result
         self.num_iterations += 1

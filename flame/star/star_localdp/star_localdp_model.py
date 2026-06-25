@@ -1,6 +1,7 @@
 from typing import Optional, Type, Literal, Union, Any
 
 from flamesdk import FlameCoreSDK
+from flamesdk.resources.utils.constants import LogTypeLiteral
 from flame.star.aggregator_client import Aggregator
 from flame.star.analyzer_client import Analyzer
 from flame.star.star_model import StarModel, _ERROR_MESSAGES
@@ -22,8 +23,10 @@ class StarLocalDPModel(StarModel):
                  data_type: Literal['fhir', 's3'],
                  query: Optional[Union[str, list[str]]] = [],
                  simple_analysis: bool = True,
-                 output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                 output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                  multiple_results: bool = False,
+                 filename: Optional[Union[str, list[str]]] = None,
+                 stream_log_level: int = 20,
                  analyzer_kwargs: Optional[dict] = None,
                  aggregator_kwargs: Optional[dict] = None,
                  epsilon: Optional[float] = None,
@@ -39,6 +42,8 @@ class StarLocalDPModel(StarModel):
                          simple_analysis=simple_analysis,
                          output_type=output_type,
                          multiple_results=multiple_results,
+                         filename=filename,
+                         stream_log_level=stream_log_level,
                          analyzer_kwargs=analyzer_kwargs,
                          aggregator_kwargs=aggregator_kwargs,
                          test_mode=test_mode,
@@ -47,8 +52,9 @@ class StarLocalDPModel(StarModel):
     def _start_aggregator(self,
                           aggregator: Type[Aggregator],
                           simple_analysis: bool = True,
-                          output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                          output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                           multiple_results: bool = False,
+                          filename: Optional[Union[str, list[str]]] = None,
                           aggregator_kwargs: Optional[dict] = None) -> None:
         if issubclass(aggregator, Aggregator):
             # init custom aggregator subclass
@@ -56,10 +62,6 @@ class StarLocalDPModel(StarModel):
                 aggregator = aggregator(flame=self.flame)
             else:
                 aggregator = aggregator(flame=self.flame, **aggregator_kwargs)
-
-            if self.test_kwargs is not None:
-                for attr, attr_val in self.test_kwargs['attributes'].items():
-                    setattr(aggregator, attr, attr_val)
 
             # Ready Check
             self._wait_until_partners_ready()
@@ -73,13 +75,12 @@ class StarLocalDPModel(StarModel):
 
                 # Aggregate results
                 agg_res, converged = aggregator.aggregate(list(result_dict.values()), simple_analysis)
-                self.flame.flame_log(f"Aggregated results: {str(agg_res)[:100]}")
 
                 if converged:
                     if not self.test_mode:
                         self.flame.flame_log("Submitting final results using differential privacy...",
-                                             log_type='info',
-                                             end='')
+                                             log_type=LogTypeLiteral.INFO.value,
+                                             halt_submission=True)
                     if aggregator.delta_criteria and (self.epsilon is not None) and (self.sensitivity is not None):
                         local_dp = {"epsilon": self.epsilon, "sensitivity": self.sensitivity}
                     else:
@@ -87,18 +88,18 @@ class StarLocalDPModel(StarModel):
                     if self.test_mode and (local_dp is not None):
                         self.flame.flame_log(f"\tTest mode: Would apply local DP with epsilon={local_dp['epsilon']} "
                                              f"and sensitivity={local_dp['sensitivity']}",
-                                             log_type='info')
-                    response = self.flame.submit_final_result(agg_res, output_type, multiple_results, local_dp=local_dp)
+                                             log_type=LogTypeLiteral.INFO.value)
+                    response = self.flame.submit_final_result(agg_res,
+                                                              output_type,
+                                                              multiple_results,
+                                                              local_dp=local_dp,
+                                                              filename=filename)
                     if not self.test_mode:
-                        self.flame.flame_log(f"success (response={response})", log_type='info')
+                        self.flame.flame_log(f"success (response={response})", log_type=LogTypeLiteral.INFO.value)
                     self.flame.analysis_finished()
                     aggregator.node_finished()  # LOOP BREAK
                 else:
                     # Send aggregated result to analyzers
                     self.flame.send_intermediate_data(analyzers, agg_res)
-            if self.test_kwargs is not None:
-                for attr, attr_val in aggregator.__dict__.items():
-                    if attr not in ['finished', 'flame']:
-                        self.test_kwargs['attributes'][attr] = attr_val
         else:
             raise BrokenPipeError(_ERROR_MESSAGES.IS_INCORRECT_CLASS.value)
