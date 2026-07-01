@@ -23,8 +23,8 @@ class MyAnalyzer(StarAnalyzer):
         :return: Any result of your analysis on one node (ex. patient count).
         """
         # TODO: Implement your analysis method
-        #  in this example we retrieving first fhir dataset, extract patient counts,
-        #  take total number of patients
+        #  in this example we first retrieve a fhir dataset, extract patient counts,
+        #  and then take the total number of patients
         patient_count = float(data[0]['Patient?_summary=count']['total'])
         return patient_count
 
@@ -46,7 +46,7 @@ class MyAggregator(StarAggregator):
         :return: The aggregated result (e.g., total patient count across all analyzers).
         """
         # TODO: Implement your aggregation method
-        #  in this example we retrieving sum up total patient counts across all nodes
+        #  in this example we sum up the total patient counts across all nodes
         total_patient_count = sum(analysis_results)
         return total_patient_count
 

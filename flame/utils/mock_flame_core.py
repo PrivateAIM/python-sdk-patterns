@@ -52,21 +52,22 @@ class MockFlameCoreSDK:
     stop_event: list[tuple[str]] = []
 
     def __init__(self, test_kwargs):
-        self.sanity_check(test_kwargs)
+        self.__sanity_check__(test_kwargs)
         self.config = MockConfig(test_kwargs)
         self.data = test_kwargs.get('fhir_data') or test_kwargs.get('s3_data')
-        self.logger[self.get_id()] = [self.get_role(), '']
 
         self._test_kwargs = test_kwargs
         self.progress = 0
         self.incoming_message_queue = []
         self.outgoing_message_queue = []
 
+        self.logger[self.get_id()] = [self.get_role(), self.progress, '']
+
         node_id = self.get_id()
         if node_id not in self.message_broker:
             self.message_broker[node_id] = []
 
-    def sanity_check(self, test_kwargs) -> None:
+    def __sanity_check__(self, test_kwargs) -> None:
         required_kwargs_check = all([k in test_kwargs.keys() for k in _REQUIRED_KWARGS])
         data_given = 'fhir_data' in test_kwargs.keys() or 's3_data' in test_kwargs.keys()
         if not required_kwargs_check:
@@ -97,6 +98,13 @@ class MockFlameCoreSDK:
     def get_role(self) -> str:
         return self.config.node_role
 
+    def node_has_data(self) -> bool:
+        """
+        Returns whether the node has access to data via DataAPI.
+        Used for distinguishing between analyzer nodes (with data) and proxy nodes (without data).
+        """
+        return self._test_kwargs.get('has_data', True)
+
     def analysis_finished(self) -> bool:
         if self.get_participant_ids():
             self.send_message(self.get_participant_ids(),
@@ -121,13 +129,13 @@ class MockFlameCoreSDK:
                   end: str = '\n',
                   file: object = None,
                   log_type: str = LogTypeLiteral.INFO.value,
-                  suppress_head: bool = False,
+                  append: bool = False,
                   halt_submission: bool = False) -> None:
         if log_type in _LOG_TYPE_LITERALS_COLORS.keys():
             color = str(_LOG_TYPE_LITERALS_COLORS[log_type])
         else:
             color = str(_LOG_TYPE_LITERALS_COLORS[LogTypeLiteral.INFO.value])
-        self.logger[self.get_id()][1] += f"\033[{color}m{msg}\033[0m{end}"
+        self.logger[self.get_id()][2] += f"\033[{color}m{msg}\033[0m{end}"
 
     def declare_log_types(self, new_log_types: dict[str, str]) -> None:
         pass
@@ -141,12 +149,13 @@ class MockFlameCoreSDK:
         if not (0 <= progress <= 100):
             self.flame_log(msg=f"Invalid progress: {progress} (should be a numeric value between 0 and 100).",
                            log_type=LogTypeLiteral.WARNING.value)
-        elif self.progress > progress:
+        elif self.progress >= progress:
             self.flame_log(msg=f"Progress value needs to be higher to current progress (i.e. only register progress, "
                                f"if actual progress has been made).",
                            log_type=LogTypeLiteral.WARNING.value)
         else:
             self.progress = progress
+            self.logger[self.get_id()][1] = progress
 
     def fhir_to_csv(self,
                     fhir_data: dict[str, Any],
@@ -271,6 +280,7 @@ class MockFlameCoreSDK:
                     self.flame_log("Given result type is not supported for local DP -> DP step will be skipped.",
                                    log_type=LogTypeLiteral.WARNING.value)
             self.final_results_storage = result
+            self.set_progress(100)
             self.__pop_logs__()
             return {"result": "submitted"}
         else:
@@ -327,13 +337,23 @@ class MockFlameCoreSDK:
 
     def get_fhir_data(self, fhir_queries: Optional[list[str]] = None) -> Optional[list[Union[dict[str, dict], dict]]]:
         if 'fhir_data' in self._test_kwargs.keys():
-            return self.data
+            if (fhir_queries is not None) and (len(fhir_queries) != 0):
+                return [{k: v for k, v in ds.items() if k in fhir_queries}
+                        for ds in self.data if any(q in ds.keys() for q in fhir_queries)]
+            else:
+                return None
         else:
             raise ValueError("No FHIR data provided in test_kwargs.")
 
     def get_s3_data(self, s3_keys: Optional[list[str]] = None) -> Optional[list[Union[dict[str, str], str]]]:
         if 's3_data' in self._test_kwargs.keys():
-            return self.data
+            if s3_keys == []:
+                return self.data
+            if s3_keys is not None:
+                return [{k: v for k, v in ds if k in s3_keys} for ds in self.data if
+                        any(q in ds.keys() for q in s3_keys)]
+            else:
+                return None
         else:
             raise ValueError("No S3 data provided in test_kwargs.")
 
@@ -346,9 +366,9 @@ class MockFlameCoreSDK:
         if failure_message:
             self.flame_log("Exception was raised (see Stacktrace)!", log_type=LogTypeLiteral.ERROR.value)
         for k, v in self.logger.items():
-            role, log = self.logger[k]
-            print(f"Logs for {'Analyzer' if role == 'default' else role.capitalize()} {k}:")
-            self.logger[k] = [role, '']
+            role, progress, log = v
+            print(f"Logs for {'Analyzer' if role == 'default' else role.capitalize()} {k} (Progress: {progress}%):")
+            self.logger[k] = [role, progress, '']
             print(log, end='')
         print(f"--- Ending Iteration {self.__get_iteration__()} ---\n")
         self.num_iterations.increment()

@@ -2,33 +2,32 @@ from abc import abstractmethod
 from typing import Any, Optional, Union
 
 from flamesdk import FlameCoreSDK
-from flamesdk.resources.utils.constants import LogTypeLiteral
-
-from flame.star.node_base_client import Node
+from flame.proxy.node_base_client import Node
 from flame.utils.mock_flame_core import MockFlameCoreSDK
 
 
 class Analyzer(Node):
+    proxy_id: str
 
     def __init__(self, flame: Union[FlameCoreSDK, MockFlameCoreSDK]) -> None:
         super().__init__(flame)
         if self.role != 'default':
             raise ValueError(f'Attempted to initialize analyzer node with mismatching configuration '
                              f'(expected: node_mode="default", received="{self.role}").')
+        # Verify this is an analyzer node (has data)
+        if hasattr(flame, 'node_has_data') and not flame.node_has_data():
+            raise ValueError(f'Attempted to initialize analyzer node on a node without data access.')
 
     def analyze(self, data: list[Any]) -> Any:
-        try:
-            result = self.analysis_method(data, self.latest_result)
-        except Exception as e:
-            self.flame.flame_log("An Error occured during execution of the given 'analysis_method' function "
-                                 "(details available at the executing node)",
-                                 log_type=LogTypeLiteral.ERROR.value)
-            raise e
+        result = self.analysis_method(data, self.latest_result)
 
         self.latest_result = result
         self.num_iterations += 1
 
         return self.latest_result
+
+    def set_proxy_id(self, proxy_id: str) -> None:
+        self.proxy_id = proxy_id
 
     @abstractmethod
     def analysis_method(self, data: list[Any], aggregator_results: Optional[Any]) -> Any:

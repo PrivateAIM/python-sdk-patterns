@@ -2,6 +2,8 @@ from abc import abstractmethod
 from typing import Any, Optional, Union
 
 from flamesdk import FlameCoreSDK
+from flamesdk.resources.utils.constants import LogTypeLiteral
+
 from flame.star.node_base_client import Node
 from flame.utils.mock_flame_core import MockFlameCoreSDK
 
@@ -16,9 +18,16 @@ class Aggregator(Node):
                              f'(expected: node_role="aggregator", received="{self.role}").')
 
     def aggregate(self, node_results: list[Any], simple_analysis: bool = True) -> tuple[Any, bool]:
-        result = self.aggregation_method(node_results)
+        try:
+            result = self.aggregation_method(node_results)
 
-        self.delta_criteria = self.has_converged(result, self.latest_result)
+            self.delta_criteria = self.has_converged(result, self.latest_result)
+        except Exception as e:
+            self.flame.flame_log("An Error occured during execution of the given 'aggregation_method' or "
+                                 "'has_converged' function (details available at the executing node)",
+                                 log_type=LogTypeLiteral.ERROR.value)
+            raise e
+
         if not simple_analysis:
             converged = self.delta_criteria if self.num_iterations != 0 else False
         else:

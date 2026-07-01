@@ -25,7 +25,7 @@ class StarModel:
                  analyzer: Type[Analyzer],
                  aggregator: Type[Aggregator],
                  data_type: Literal['fhir', 's3'],
-                 query: Optional[Union[str, list[str]]] = None,
+                 query: Optional[Union[str, list[str]]] = [],
                  simple_analysis: bool = True,
                  output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                  multiple_results: bool = False,
@@ -185,8 +185,10 @@ class StarModel:
     def _get_data(self,
                   data_type: Literal['fhir', 's3'],
                   query: Optional[Union[str, list[str]]] = None) -> None:
-        if type(query) == str:
+        if (type(query) == str) and query:
             query = [query]
+        elif not query:
+            query = []
 
         if data_type == 'fhir':
             self.data = self.flame.get_fhir_data(query)

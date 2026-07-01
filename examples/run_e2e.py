@@ -26,6 +26,13 @@ RESULTS_DIR = Path("results/")
 MAX_ITERATIONS = 10
 CONVERGENCE_TOL = 1e-4
 
+RESULT_FILENAMES = [
+    "age_distribution_federated.png",
+    "dataset_description_federated.txt",
+    "pasc_distribution_federated.png",
+    "sex_distribution_federated.png",
+]
+
 PASC_SYMPTOM_KEYWORDS: List[str] = [
     "fatigue", "tired", "dyspnea", "shortness_of_breath", "breath", "cough",
     "anosmia", "ageusia", "smell", "taste", "headache", "migraine",
@@ -95,7 +102,7 @@ def _prepare_features(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray, List[st
 # Analyzer  (runs on each node)
 # ---------------------------------------------------------------------------
 
-class Analyzer(StarAnalyzer):
+class HaltaAnalyzer(StarAnalyzer):
     """
     Each node parses its local CSV, computes descriptive statistics,
     trains a local linear SVM, and returns both to the aggregator.
@@ -105,18 +112,14 @@ class Analyzer(StarAnalyzer):
         super().__init__(flame)
 
     def analysis_method(self, data, aggregator_results):
-        # --- Parse CSV bytes ------------------------------------------------
         file_bytes = [v for k, v in data[0].items() if k.endswith('labeled.csv')][0]
         df = pd.read_csv(BytesIO(file_bytes))
         node_id = getattr(self, "id", "unknown")
 
-
-        # --- Descriptive statistics -----------------------------------------
         n_rows, n_cols = df.shape
         missing_by_col = df.isna().sum().astype(int).to_dict()
         total_missing = int(sum(missing_by_col.values()))
-        
-        # Age histogram (5-year bins, 0-100)
+
         age_hist, age_edges = None, None
         if "age" in df.columns:
             ages = pd.to_numeric(df["age"], errors="coerce").dropna()
@@ -125,14 +128,12 @@ class Analyzer(StarAnalyzer):
             age_hist = h.astype(int).tolist()
             age_edges = e.astype(float).tolist()
 
-        # Sex distribution
         sex_col = "sex" if "sex" in df.columns else ("gender" if "gender" in df.columns else None)
         sex_counts = (
             df[sex_col].astype(str).value_counts(dropna=False).to_dict()
             if sex_col else {}
         )
 
-        # PASC label distribution
         pasc_counts: Dict[str, int] = {}
         if LABEL_COL in df.columns:
             pasc_counts = {
@@ -140,13 +141,12 @@ class Analyzer(StarAnalyzer):
                 for k, v in df[LABEL_COL].value_counts(dropna=False).items()
             }
 
-        # --- Local SVM training ---------------------------------------------
         X, y, feature_names = _prepare_features(df)
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(X)
 
         svm = SGDClassifier(
-            loss="hinge",       # linear SVM
+            loss="hinge",
             penalty="l2",
             alpha=1e-4,
             max_iter=1000,
@@ -155,7 +155,6 @@ class Analyzer(StarAnalyzer):
         )
 
         if aggregator_results is not None and "svm_coef" in aggregator_results:
-            # Warm-start from the global (aggregated) model
             svm.partial_fit(X_scaled[:1], y[:1], classes=[0, 1])
             svm.coef_ = np.array(aggregator_results["svm_coef"])
             svm.intercept_ = np.array(aggregator_results["svm_intercept"])
@@ -172,6 +171,9 @@ class Analyzer(StarAnalyzer):
             f"PASC={pasc_counts}, local_acc={local_acc:.4f}",
             log_type="notice",
         )
+        p_levels = 100 / MAX_ITERATIONS
+        self.flame.set_progress(self.num_iterations * p_levels if 0 < self.num_iterations * p_levels < 100 else
+                                99.9 if self.num_iterations * p_levels == 100 else 1)
 
         return {
             "node_id": node_id,
@@ -197,7 +199,7 @@ class Analyzer(StarAnalyzer):
 # Aggregator  (central coordinator)
 # ---------------------------------------------------------------------------
 
-class Aggregator(StarAggregator):
+class HaltaAggregator(StarAggregator):
     """
     Aggregates descriptive statistics, generates plots, and performs
     federated averaging of the SVM weights across nodes.
@@ -206,12 +208,9 @@ class Aggregator(StarAggregator):
     def __init__(self, flame):
         super().__init__(flame)
 
-    # --- main aggregation ---------------------------------------------------
-
     def aggregation_method(self, analysis_results: list) -> Union[dict, list]:
         n_nodes = len(analysis_results)
 
-        # Aggregate descriptive statistics
         total_rows = sum(r["n_rows"] for r in analysis_results)
         n_cols = max(r["n_cols"] for r in analysis_results)
         total_missing = sum(r["total_missing"] for r in analysis_results)
@@ -240,7 +239,6 @@ class Aggregator(StarAggregator):
             for k, v in r.get("pasc_counts", {}).items():
                 pasc_counts[k] = pasc_counts.get(k, 0) + v
 
-        # Federated SVM averaging (weighted by node sample size)
         total_samples = sum(r["local_n_samples"] for r in analysis_results)
         coef_avg: Optional[np.ndarray] = None
         intercept_avg: Optional[np.ndarray] = None
@@ -268,7 +266,6 @@ class Aggregator(StarAggregator):
             for r in analysis_results
         ]
 
-        # Plots and description only on the first iteration
         if self.num_iterations <= 1:
             self._make_plots(age_edges, age_hist, sex_counts, pasc_counts)
             self._print_description(
@@ -298,16 +295,16 @@ class Aggregator(StarAggregator):
             "per_node": per_node,
             "iteration": self.num_iterations,
         }
-        # if not has_converged progress with next iteration
+
+        p_levels = 100 / MAX_ITERATIONS
+        self.flame.set_progress(self.num_iterations * p_levels if 0 < self.num_iterations * p_levels < 100 else
+                                99.9 if self.num_iterations * p_levels == 100 else 1)
+
         if not self.has_converged(result, self.latest_result):
             return result
-        # else wrap final result file package
         else:
             result_dir = str(RESULTS_DIR)
-            result_file_paths = [os.path.join(result_dir, "age_distribution_federated.png"),
-                                 os.path.join(result_dir, "dataset_description_federated.txt"),
-                                 os.path.join(result_dir, "pasc_distribution_federated.png"),
-                                 os.path.join(result_dir, "sex_distribution_federated.png")]
+            result_file_paths = [os.path.join(result_dir, name) for name in RESULT_FILENAMES]
             results = []
             for path in result_file_paths:
                 try:
@@ -317,8 +314,6 @@ class Aggregator(StarAggregator):
                     with open(path, 'rb') as f:
                         results.append(f.read())
             return results
-
-    # --- convergence check --------------------------------------------------
 
     def has_converged(self, result, last_result) -> bool:
         it = self.num_iterations
@@ -346,15 +341,11 @@ class Aggregator(StarAggregator):
 
         return False
 
-    # --- private helpers ----------------------------------------------------
-
     def _make_plots(self, age_edges, age_hist, sex_counts, pasc_counts):
-        """Generate federated distribution plots."""
         results_dir = str(RESULTS_DIR)
         if not os.path.exists(results_dir):
             os.makedirs(results_dir)
         try:
-            # Age distribution
             if age_edges is not None and age_hist is not None:
                 edges = np.array(age_edges, dtype=float)
                 hist = np.array(age_hist, dtype=float)
@@ -369,7 +360,6 @@ class Aggregator(StarAggregator):
                 plt.savefig(os.path.join(results_dir, "age_distribution_federated.png"), dpi=200)
                 plt.close()
 
-            # Sex distribution
             if sex_counts:
                 keys = list(sex_counts.keys())
                 vals = [sex_counts[k] for k in keys]
@@ -382,7 +372,6 @@ class Aggregator(StarAggregator):
                 plt.savefig(os.path.join(results_dir, "sex_distribution_federated.png"), dpi=200)
                 plt.close()
 
-            # PASC label distribution
             if pasc_counts:
                 labels = sorted(pasc_counts.keys(), key=str)
                 vals = [pasc_counts[k] for k in labels]
@@ -402,7 +391,6 @@ class Aggregator(StarAggregator):
 
     def _print_description(self, n_nodes, total_rows, n_cols, total_missing,
                            sex_counts, pasc_counts, avg_accuracy, per_node):
-        """Print and save a human-readable dataset description."""
         results_dir = str(RESULTS_DIR)
         sep = "=" * 60
         lines = [
@@ -442,7 +430,6 @@ class Aggregator(StarAggregator):
                 f.write(desc + "\n")
 
     def _print_final(self, result):
-        """Print final SVM model summary after convergence."""
         sep = "-" * 60
         lines = [
             "",
@@ -462,28 +449,13 @@ class Aggregator(StarAggregator):
 
 
 if __name__ == "__main__":
-    # StarModelTester(
-    #     data_splits=[open('data/node1/synthetic_eucare_1_labeled.csv', 'r').read(),
-    #                  open('data/node2/synthetic_eucare_2_labeled.csv', 'r').read()],
-    #     analyzer=HaltaAnalyzer,
-    #     aggregator=HaltaAggregator,
-    #     data_type='s3',
-    #     query=[],
-    #     multiple_results=True,
-    #     simple_analysis=False,
-    #     output_type=['bytes', 'str', 'bytes', 'bytes'],
-    #     result_filepath=['hub_results/age_distribution_federated_new.png',
-    #                      'hub_results/dataset_description_federated_new.txt',
-    #                      'hub_results/pasc_distribution_federated_new.png',
-    #                      'hub_results/sex_distribution_federated_new.png']
-    # )
     StarModel(
-        analyzer=Analyzer,
-        aggregator=Aggregator,
+        analyzer=HaltaAnalyzer,
+        aggregator=HaltaAggregator,
         data_type='s3',
         query=[],
         multiple_results=True,
         simple_analysis=False,
-        output_type=['bytes', 'str', 'bytes', 'bytes']
+        output_type=['bytes', 'str', 'bytes', 'bytes'],
+        filename=RESULT_FILENAMES,
     )
-
