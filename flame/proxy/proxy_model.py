@@ -2,6 +2,7 @@ from enum import Enum
 from typing import Callable, Optional, Type, Literal, Union, Any
 
 from flamesdk import FlameCoreSDK
+from flamesdk.resources.utils.constants import LogTypeLiteral
 from flame.proxy.aggregator_client import Aggregator
 from flame.proxy.analyzer_client import Analyzer
 from flame.proxy.proxy_client import Proxy
@@ -31,41 +32,53 @@ class ProxyModel:
                  query: Optional[Union[str, list[str]]] = [],
                  num_proxy_nodes: int = 1,
                  simple_analysis: bool = True,
-                 output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                 output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                  multiple_results: bool = False,
+                 filename: Optional[Union[str, list[str]]] = None,
+                 stream_log_level: int = 20,
                  mapping_method: Callable[[list[str], list[str]], dict[str, str]] = round_robin_analyzer_to_proxy_mapping,
                  analyzer_kwargs: Optional[dict] = None,
                  proxy_kwargs: Optional[dict] = None,
-                 aggregator_kwargs: Optional[dict] = None) -> None:
+                 aggregator_kwargs: Optional[dict] = None,
+                 test_mode: bool = False,
+                 test_kwargs: Optional[dict] = None) -> None:
         self.num_proxy_nodes = num_proxy_nodes
         self.mapping_method = mapping_method
-        self.flame = FlameCoreSDK(default_requires_data=False)
+        self.test_mode = test_mode
+        if self.test_mode:
+            self.test_kwargs = test_kwargs
+            self.flame = MockFlameCoreSDK(test_kwargs=test_kwargs) # TODO: default_requires_data=False
+        else:
+            self.test_kwargs = None
+            self.flame = FlameCoreSDK(default_requires_data=False, stream_log_level=stream_log_level)
 
         # Determine node type based on role and data access
         if self._is_analyzer():
-            self.flame.flame_log(f"Analyzer started", log_type='info')
+            self.flame.flame_log(f"Analyzer started", log_type=LogTypeLiteral.INFO.value)
             self._start_analyzer(analyzer,
                                  data_type=data_type,
                                  query=query,
                                  simple_analysis=simple_analysis,
                                  analyzer_kwargs=analyzer_kwargs)
         elif self._is_proxy():
-            self.flame.flame_log(f"Proxy started", log_type='info')
+            self.flame.flame_log(f"Proxy started", log_type=LogTypeLiteral.INFO.value)
             self._start_proxy(proxy,
                               simple_analysis=simple_analysis,
                               proxy_kwargs=proxy_kwargs)
         elif self._is_aggregator():
-            self.flame.flame_log("Aggregator started", log_type='info')
+            self.flame.flame_log("Aggregator started", log_type=LogTypeLiteral.INFO.value)
             self._start_aggregator(aggregator,
                                    simple_analysis=simple_analysis,
                                    output_type=output_type,
                                    multiple_results=multiple_results,
+                                   filename=filename,
                                    aggregator_kwargs=aggregator_kwargs)
         else:
             raise BrokenPipeError("Node has to be either analyzer, proxy, or aggregator")
-        self.flame.flame_log("Analysis finished!", log_type='info')
-        while True:
-            pass  # keep the node alive to allow for orderly shutdown
+        if not self.test_mode:
+            self.flame.flame_log("Analysis finished!", log_type=LogTypeLiteral.INFO.value)
+            while True:
+                pass  # keep the node alive to allow for orderly shutdown
 
     def _is_analyzer(self) -> bool:
         """Check if this is an analyzer node (default role with data access)"""
@@ -99,7 +112,7 @@ class ProxyModel:
 
             # Get data
             self._get_data(query=query, data_type=data_type)
-            self.flame.flame_log(f"\tData extracted: {str(self.data)[:100]}", log_type='info')
+            self.flame.flame_log(f"\tData extracted: {str(self.data)[:100]}", log_type=LogTypeLiteral.INFO.value)
 
             while not analyzer.finished:
                 # Analyze data
@@ -154,8 +167,9 @@ class ProxyModel:
     def _start_aggregator(self,
                           aggregator: Type[Aggregator],
                           simple_analysis: bool = True,
-                          output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                          output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                           multiple_results: bool = False,
+                          filename: Optional[Union[str, list[str]]] = None,
                           aggregator_kwargs: Optional[dict] = None) -> None:
         if issubclass(aggregator, Aggregator):
             # init custom aggregator subclass
@@ -174,10 +188,12 @@ class ProxyModel:
 
                 # Aggregate results from proxies
                 agg_res, converged = aggregator.aggregate(list(result_dict.values()), simple_analysis)
+                print('Aggregation results: ', agg_res)
+                print(converged)
 
                 if converged:
-                    response = self.flame.submit_final_result(agg_res, output_type, multiple_results)
-                    self.flame.flame_log(f"success (response={response})", log_type='info')
+                    response = self.flame.submit_final_result(agg_res, output_type, multiple_results, filename=filename)
+                    self.flame.flame_log(f"success (response={response})", log_type=LogTypeLiteral.INFO.value)
                     self.flame.analysis_finished()
                     aggregator.node_finished()
                 else:
@@ -204,7 +220,7 @@ class ProxyModel:
                     message_category='assigned_proxy'
                 )
                 if await_response is not None:
-                    return await_response[self.flame.get_aggregator_id()][0].body['proxy_id']
+                    return await_response[self.flame.get_aggregator_id()]['proxy_id']
                 else:
                     raise BrokenPipeError("Could not retrieve assigned proxy from aggregator")
 
@@ -219,7 +235,7 @@ class ProxyModel:
                     message_category='assigned_analyzers'
                 )
                 if await_response is not None:
-                    return await_response[self.flame.get_aggregator_id()][0].body['analyzer_ids']
+                    return await_response[self.flame.get_aggregator_id()]['analyzer_ids']
                 else:
                     raise BrokenPipeError("Could not retrieve assigned analyzers from aggregator")
 
@@ -238,9 +254,9 @@ class ProxyModel:
         analyzer_ids = []
         if all([val is not None for val in response_dict.values()]):
             for node_id, message in response_dict.items():
-                if message[0].body['role'] == 'proxy':
+                if message['role'] == 'proxy':
                     proxy_ids.append(node_id)
-                elif message[0].body['role'] == 'default':
+                elif message['role'] == 'default':
                     analyzer_ids.append(node_id)
 
             if len(proxy_ids) != self.num_proxy_nodes:
