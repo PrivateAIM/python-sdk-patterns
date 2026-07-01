@@ -336,13 +336,23 @@ class MockFlameCoreSDK:
 
     def get_fhir_data(self, fhir_queries: Optional[list[str]] = None) -> Optional[list[Union[dict[str, dict], dict]]]:
         if 'fhir_data' in self._test_kwargs.keys():
-            return self.data
+            if (fhir_queries is not None) and (len(fhir_queries) != 0):
+                return [{k: v for k, v in ds.items() if k in fhir_queries}
+                        for ds in self.data if any(q in ds.keys() for q in fhir_queries)]
+            else:
+                return None
         else:
             raise ValueError("No FHIR data provided in test_kwargs.")
 
     def get_s3_data(self, s3_keys: Optional[list[str]] = None) -> Optional[list[Union[dict[str, str], str]]]:
         if 's3_data' in self._test_kwargs.keys():
-            return self.data
+            if s3_keys == []:
+                return self.data
+            if s3_keys is not None:
+                return [{k: v for k, v in ds if k in s3_keys} for ds in self.data if
+                        any(q in ds.keys() for q in s3_keys)]
+            else:
+                return None
         else:
             raise ValueError("No S3 data provided in test_kwargs.")
 
