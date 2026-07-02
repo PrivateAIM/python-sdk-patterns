@@ -267,7 +267,7 @@ class ProxyModel:
             elif len(proxy_ids) > len(analyzer_ids):
                 raise BrokenPipeError(f"Number of analyzers ({len(analyzer_ids)}) must be at least equal to "
                                       f"number of proxies ({len(proxy_ids)})")
-            # Create round-robin mapping
+            # Map analyzer to proxy ids -> return as dict {analyzer ID: proxy ID, ...}
             mapping = self.mapping_method(proxy_ids, analyzer_ids)
 
             # Inform all analyzers of their proxies, and proxies of their analyzers
