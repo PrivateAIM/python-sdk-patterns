@@ -188,8 +188,6 @@ class ProxyModel:
 
                 # Aggregate results from proxies
                 agg_res, converged = aggregator.aggregate(list(result_dict.values()), simple_analysis)
-                print('Aggregation results: ', agg_res)
-                print(converged)
 
                 if converged:
                     response = self.flame.submit_final_result(agg_res, output_type, multiple_results, filename=filename)
