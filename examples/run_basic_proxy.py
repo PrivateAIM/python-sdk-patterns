@@ -22,6 +22,9 @@ class MyAnalyzer(ProxyAnalyzer):
         :return: Any result of your analysis on one node (ex. patient count).
         """
         patient_count = float(data[0]['Patient?_summary=count']['total'])
+        if self.num_iterations > 0:
+            self.flame.set_progress((self.num_iterations / 2) * 100)
+        self.flame.flame_log(f"Patient count: {patient_count}")
         return patient_count
 
 
@@ -37,6 +40,9 @@ class MyProxy(Proxy):
         :return: The aggregated result (e.g., total patient count across all analyzers).
         """
         sub_total_patient_count = sum(analysis_results)
+        if self.num_iterations > 0:
+            self.flame.set_progress((self.num_iterations / 2) * 100)
+        self.flame.flame_log(f"Intermediate aggregated count: {sub_total_patient_count} <- sum({analysis_results})")
         return sub_total_patient_count
 
 
@@ -51,11 +57,15 @@ class MyAggregator(ProxyAggregator):
         :param proxy_results: A list of pre-aggregated results from each proxy node.
         :return: The aggregated result (e.g., total patient count across all analyzers).
         """
-        total_patient_count = sum(proxy_results)
+        total_patient_count = sum(proxy_results) + (self.latest_result if self.num_iterations > 0 else 0)
+        if 0 < self.num_iterations < 2:
+            self.flame.set_progress((self.num_iterations / 2) * 100)
+        self.flame.flame_log(f"Fully aggregated count: {total_patient_count} <- sum({proxy_results}) + "
+                             f"{self.latest_result if self.num_iterations > 0 else 0}")
         return total_patient_count
 
     def has_converged(self, result, last_result):
-        return True
+        return self.num_iterations >= 2
 
 
 def main():
@@ -66,7 +76,7 @@ def main():
         data_type='fhir',                # Type of data source ('fhir' or 's3')
         query='Patient?_summary=count',  # Query or list of queries to retrieve data
         num_proxy_nodes=1,               # Number of proxy nodes partaking in this analysis
-        simple_analysis=True,            # True for single-iteration; False for multi-iterative analysis
+        simple_analysis=False,            # True for single-iteration; False for multi-iterative analysis
         output_type='str',               # Output format for the final result ('str', 'bytes', or 'pickle')
         multiple_results=False,          # Can be set to True to return highest iterable-level of results as separate files
         analyzer_kwargs=None,            # Additional keyword arguments for the custom analyzer constructor (i.e. MyAnalyzer)

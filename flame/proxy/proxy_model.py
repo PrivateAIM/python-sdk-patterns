@@ -124,6 +124,8 @@ class ProxyModel:
                 # If not converged await aggregated result from proxy
                 if not simple_analysis:
                     analyzer.latest_result = list(self.flame.await_intermediate_data([aggregator_id]).values())
+                    if self.flame.config.finished:
+                        analyzer.node_finished()
                 else:
                     analyzer.node_finished()
         else:
@@ -159,6 +161,8 @@ class ProxyModel:
                 if not simple_analysis:
                     aggregator_result = list(self.flame.await_intermediate_data([aggregator_id]).values())
                     proxy.set_latest_aggregator_result(aggregator_result)
+                    if self.flame.config.finished:
+                        proxy.node_finished()
                 else:
                     proxy.node_finished()
         else:

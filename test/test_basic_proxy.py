@@ -16,6 +16,7 @@ if __name__ == "__main__":
         data_type='fhir',
         query='Patient?_summary=count',
         num_proxy_nodes=2,
+        simple_analysis=False,
         output_type='str',
         filename='test/results/test_basic_proxy_result.txt'
     )

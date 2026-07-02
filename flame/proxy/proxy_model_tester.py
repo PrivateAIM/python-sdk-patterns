@@ -27,9 +27,7 @@ class ProxyModelTester:
                  mapping_method: Callable[[list[str], list[str]], dict[str, str]] = round_robin_analyzer_to_proxy_mapping,
                  analyzer_kwargs: Optional[dict] = None,
                  proxy_kwargs: Optional[dict] = None,
-                 aggregator_kwargs: Optional[dict] = None,
-                 test_mode: bool = False,
-                 test_kwargs: Optional[dict] = None) -> None:
+                 aggregator_kwargs: Optional[dict] = None) -> None:
         num_splits = len(data_splits)
         self.test_input(data_splits[0])
         participants = []
@@ -65,7 +63,9 @@ class ProxyModelTester:
                 'output_type': output_type,
                 'multiple_results': multiple_results,
                 'stream_log_level': stream_log_level,
+                'mapping_method': mapping_method,
                 'analyzer_kwargs': analyzer_kwargs,
+                'proxy_kwargs': proxy_kwargs,
                 'aggregator_kwargs': aggregator_kwargs,
                 'test_mode': True,
                 'test_kwargs': {f'{data_type}_data': data_splits[i] if i < num_splits else None,
