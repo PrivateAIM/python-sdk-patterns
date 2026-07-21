@@ -16,7 +16,7 @@ class Analyzer(Node):
             raise ValueError(f'Attempted to initialize analyzer node with mismatching configuration '
                              f'(expected: node_mode="default", received="{self.role}").')
 
-    def analyze(self, data: list[Any]) -> Any:
+    def analyze(self, data: list[Any], checkpoint_filter: Optional[list[str]] = None) -> Any:
         try:
             result = self.analysis_method(data, self.latest_result)
         except Exception as e:
@@ -27,6 +27,9 @@ class Analyzer(Node):
 
         self.latest_result = result
         self.num_iterations += 1
+
+        if self.should_checkpoint():
+            self.set_checkpoint(checkpoint_filter)
 
         return self.latest_result
 

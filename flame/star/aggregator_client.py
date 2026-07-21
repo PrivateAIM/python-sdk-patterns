@@ -17,7 +17,10 @@ class Aggregator(Node):
             raise ValueError(f'Attempted to initialize aggregator node with mismatching configuration '
                              f'(expected: node_role="aggregator", received="{self.role}").')
 
-    def aggregate(self, node_results: list[Any], simple_analysis: bool = True) -> tuple[Any, bool]:
+    def aggregate(self,
+                  node_results: list[Any],
+                  simple_analysis: bool = True,
+                  checkpoint_filter: Optional[list[str]] = None) -> tuple[Any, bool]:
         try:
             result = self.aggregation_method(node_results)
 
@@ -35,6 +38,9 @@ class Aggregator(Node):
 
         self.latest_result = result
         self.num_iterations += 1
+
+        if self.should_checkpoint():
+            self.set_checkpoint(checkpoint_filter)
 
         return self.latest_result, converged
 

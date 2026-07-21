@@ -1,4 +1,8 @@
+import pickle
 import time
+import os
+import uuid
+
 from httpx import AsyncClient
 from io import StringIO
 from typing import Any, Literal, Optional, Union
@@ -13,6 +17,7 @@ from flamesdk.resources.utils.constants import LogTypeLiteral
 
 _REQUIRED_KWARGS = ['node_id', 'aggregator_id', 'role', 'participants']
 
+CHECKPOINT_TAG_PREFIX = 'checkpoint-'
 
 _LOG_TYPE_LITERALS_COLORS = {LogTypeLiteral.INFO.value: 36,
                              LogTypeLiteral.NOTICE.value: 32,
@@ -98,6 +103,29 @@ class MockFlameCoreSDK:
     def get_role(self) -> str:
         return self.config.node_role
 
+    def get_self_node_index(self) -> int:
+        """
+        Returns the index of the executing node id from list containing all analysis node ids sorted alphanumerically.
+        :return: the node id index
+        """
+        return self.get_node_index(self.get_id())
+
+    def get_node_index(self, node_id: str) -> Optional[int]:
+        """
+        Returns the index of the given node id from list containing all analysis node ids sorted alphanumerically.
+        If the given id cannot be found returns None.
+        :return: the node id index or None
+        """
+        id_list = self.get_participant_ids()
+        id_list.append(self.get_id())
+        if node_id in id_list:
+            return sorted(id_list).index(node_id)
+        else:
+            self.flame_log(f"\tSearched node id '{node_id}' not found during indexing attempt",
+                           log_type= LogTypeLiteral.WARNING.value)
+            return None
+
+
     def node_has_data(self) -> bool:
         """
         Returns whether the node has access to data via DataAPI.
@@ -156,6 +184,50 @@ class MockFlameCoreSDK:
         else:
             self.progress = progress
             self.logger[self.get_id()][1] = progress
+
+    def set_checkpoint(self, kwargs: dict[str, Any]) -> None:
+        """
+        Saves given kwargs into local node storage for future analysis retrieval. raise Warning for incorrect format
+        of kwargs
+
+        :param kwargs:
+        :return:
+        """
+        if not isinstance(kwargs, dict):
+            self.flame_log(msg=f'Expected dictionary object for kwargs in checkpoint save but received {type(kwargs)}.'
+                               f' Could not save checkpoint',
+                           log_type=LogTypeLiteral.WARNING.value)
+        elif not any(isinstance(key, str) for key in kwargs.keys()):
+            self.flame_log(msg=f'Expected string object for kwargs keys in checkpoint save but received '
+                               f'{[type(k) for k in kwargs.keys()]}. Could not save checkpoint',
+                           log_type=LogTypeLiteral.WARNING.value)
+        else:
+            i = len(self.get_local_tags(CHECKPOINT_TAG_PREFIX)) + 1
+            self.flame_log(msg=f'Saved checkpoint no.{i}', log_type=LogTypeLiteral.INFO.value)
+            self.save_intermediate_data(data= kwargs,
+                                        location='local',
+                                        tag=f"{CHECKPOINT_TAG_PREFIX}{i}")
+
+    def load_checkpoint(self, index: int) -> Optional[dict[str, Any]]:
+        """
+        Load saved kwargs from previous checkpoint with given index. return None if not found
+
+        :param index:
+        :return kwargs:
+        """
+        locally_tagged_saves = self.get_local_tags(f"{CHECKPOINT_TAG_PREFIX}{index}")
+        if len(locally_tagged_saves) == 1:
+            self.flame_log(msg=f'Loading checkpoint no.{index}', log_type=LogTypeLiteral.INFO.value)
+            return self.get_intermediate_data(location='local', tag=f"{CHECKPOINT_TAG_PREFIX}{index}")
+        elif len(locally_tagged_saves) > 1:
+            self.flame_log(msg=f'Error: Loading checkpoint no.{index} failed. Multiple saves under same tag found',
+                           log_type=LogTypeLiteral.ERROR.value)
+            return None
+        else:
+            self.flame_log(msg=f'No checkpoint {index} was found. Returning None',
+                           log_type=LogTypeLiteral.WARNING.value)
+            return None
+
 
     def fhir_to_csv(self,
                     fhir_data: dict[str, Any],
@@ -292,7 +364,29 @@ class MockFlameCoreSDK:
                                location: Literal["local", "global"],
                                remote_node_ids: Optional[list[str]] = None,
                                tag: Optional[str] = None) -> Union[dict[str, dict[str, str]], dict[str, str]]:
-        pass
+        filename = str(uuid.uuid4())
+        save_location = ""
+        if location == "local":
+            storage_dir = self._test_kwargs.local_storage_dir()
+            if not storage_dir:
+                os.mkdir(storage_dir)
+            node_store = f"{storage_dir}/{self.get_id()}"
+            if not os.path.exists(node_store):
+                os.mkdir(node_store)
+
+            if tag is not None:
+                tagged_node_store = f"{node_store}/{tag}"
+                if not os.path.exists(tagged_node_store):
+                    os.mkdir(tagged_node_store)
+                save_location = f"{tagged_node_store}/{filename}"
+            else:
+                save_location = f"{node_store}/{filename}"
+
+            with open(save_location, "wb") as f:
+                f.write(pickle.dumps(data))
+            return {"saved": save_location}
+        else:
+            self.send_intermediate_data(receivers=remote_node_ids, data=data)
 
     def get_intermediate_data(self,
                               location: Literal["local", "global"],
@@ -300,7 +394,7 @@ class MockFlameCoreSDK:
                               tag: Optional[str] = None,
                               tag_option: Optional[Literal["all", "last","first"]] = "all",
                               sender_node_id: Optional[str] = None) -> Any:
-        pass
+        pass #TODO
 
     def send_intermediate_data(self,
                                receivers: list[str],
@@ -314,7 +408,7 @@ class MockFlameCoreSDK:
                                          message_category=message_category,
                                          message=data,
                                          max_attempts=max_attempts,
-                                         timeout=timeout,)
+                                         timeout=timeout)
         if self.get_id() == self.get_aggregator_id():
             self.__pop_logs__()
         return receivers, []

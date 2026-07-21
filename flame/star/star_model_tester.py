@@ -23,6 +23,8 @@ class StarModelTester:
                  stream_log_level: int = 20,
                  analyzer_kwargs: Optional[dict] = None,
                  aggregator_kwargs: Optional[dict] = None,
+                 load_checkpoint: Optional[int] = None,
+                 local_storage_dir: Optional[str] = None,
                  epsilon: Optional[float] = None,
                  sensitivity: Optional[float] = None) -> None:
         num_splits = len(data_splits)
@@ -56,6 +58,7 @@ class StarModelTester:
                 'stream_log_level': stream_log_level,
                 'analyzer_kwargs': analyzer_kwargs,
                 'aggregator_kwargs': aggregator_kwargs,
+                'load_checkpoint': load_checkpoint,
                 'test_mode': True,
                 'test_kwargs': {f'{data_type}_data': data_splits[i] if i < num_splits else None,
                                 'node_id': participant_id,
@@ -63,7 +66,8 @@ class StarModelTester:
                                 'participants': [part for j, part in enumerate(participants) if i != j],
                                 'role': participant_role,
                                 'analysis_id': "analysis_id",
-                                'project_id': "project_id"
+                                'project_id': "project_id",
+                                'local_storage_dir': local_storage_dir
                                 }
             }
             use_local_dp = (epsilon is not None) and (sensitivity is not None)
