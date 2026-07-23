@@ -26,10 +26,10 @@ class Aggregator(Node):
 
             self.delta_criteria = self.has_converged(result, self.latest_result)
         except Exception as e:
-            self.flame.flame_log("An Error occured during execution of the given 'aggregation_method' or "
+            self.flame.flame_log("An Error occurred during execution of the given 'aggregation_method' or "
                                  "'has_converged' function (details available at the executing node)",
-                                 log_type=LogTypeLiteral.ERROR.value)
-            raise e
+                                 log_type=LogTypeLiteral.ERROR.value,
+                                 hidden_error_msg=repr(e))
 
         if not simple_analysis:
             converged = self.delta_criteria if self.num_iterations != 0 else False

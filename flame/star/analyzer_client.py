@@ -22,8 +22,8 @@ class Analyzer(Node):
         except Exception as e:
             self.flame.flame_log("An Error occured during execution of the given 'analysis_method' function "
                                  "(details available at the executing node)",
-                                 log_type=LogTypeLiteral.ERROR.value)
-            raise e
+                                 log_type=LogTypeLiteral.ERROR.value,
+                                 hidden_error_msg=repr(e))
 
         self.latest_result = result
         self.num_iterations += 1
