@@ -177,26 +177,28 @@ class StarModel:
             aggregator_id = self.flame.get_aggregator_id()
             if not self.test_mode:
                 self.flame.flame_log("Awaiting contact with aggregator node...",
-                                     log_type=LogTypeLiteral.INFO.value)
+                                     log_type=LogTypeLiteral.INFO.value,
+                                     halt_submission=True)
             ready_check_dict = self.flame.ready_check([aggregator_id])
 
             if not ready_check_dict[aggregator_id]:
+                self.flame.flame_log("failed", log_type=LogTypeLiteral.ERROR.value)
                 raise BrokenPipeError("Could not contact aggregator")
 
             if not self.test_mode:
-                self.flame.flame_log("Awaiting contact with aggregator node...success",
-                                     log_type=LogTypeLiteral.INFO.value)
+                self.flame.flame_log("success", log_type=LogTypeLiteral.INFO.value)
         else:
             analyzer_ids = self.flame.get_participant_ids()
             if not self.test_mode:
                 self.flame.flame_log("Awaiting contact with analyzer nodes...",
-                                     log_type=LogTypeLiteral.INFO.value)
+                                     log_type=LogTypeLiteral.INFO.value,
+                                     halt_submission=True)
             ready_check_dict = self.flame.ready_check(analyzer_ids)
             if not all(ready_check_dict.values()):
+                self.flame.flame_log("failed", log_type=LogTypeLiteral.ERROR.value)
                 raise BrokenPipeError("Could not contact all analyzers")
             if not self.test_mode:
-                self.flame.flame_log("Awaiting contact with analyzer nodes...success",
-                                     log_type=LogTypeLiteral.INFO.value)
+                self.flame.flame_log("success", log_type=LogTypeLiteral.INFO.value)
 
     def _get_data(self,
                   data_type: Literal['fhir', 's3'],
