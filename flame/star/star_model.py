@@ -120,7 +120,9 @@ class StarModel:
                     response = self.flame.submit_final_result(agg_res, output_type, multiple_results,
                                                               filename=filename)
                     if not self.test_mode:
-                        self.flame.flame_log(f"success (response={response})", log_type=LogTypeLiteral.INFO.value)
+                        self.flame.flame_log(f"success (response={response})",
+                                             log_type=LogTypeLiteral.INFO.value,
+                                             append=True)
                     self.flame.analysis_finished()
                     aggregator.node_finished()      # LOOP BREAK
                 else:
@@ -182,11 +184,11 @@ class StarModel:
             ready_check_dict = self.flame.ready_check([aggregator_id])
 
             if not ready_check_dict[aggregator_id]:
-                self.flame.flame_log("failed", log_type=LogTypeLiteral.ERROR.value)
+                self.flame.flame_log("failed", log_type=LogTypeLiteral.ERROR.value, append=True)
                 raise BrokenPipeError("Could not contact aggregator")
 
             if not self.test_mode:
-                self.flame.flame_log("success", log_type=LogTypeLiteral.INFO.value)
+                self.flame.flame_log("success", log_type=LogTypeLiteral.INFO.value, append=True)
         else:
             analyzer_ids = self.flame.get_participant_ids()
             if not self.test_mode:
@@ -195,10 +197,10 @@ class StarModel:
                                      halt_submission=True)
             ready_check_dict = self.flame.ready_check(analyzer_ids)
             if not all(ready_check_dict.values()):
-                self.flame.flame_log("failed", log_type=LogTypeLiteral.ERROR.value)
+                self.flame.flame_log("failed", log_type=LogTypeLiteral.ERROR.value, append=True)
                 raise BrokenPipeError("Could not contact all analyzers")
             if not self.test_mode:
-                self.flame.flame_log("success", log_type=LogTypeLiteral.INFO.value)
+                self.flame.flame_log("success", log_type=LogTypeLiteral.INFO.value, append=True)
 
     def _get_data(self,
                   data_type: Literal['fhir', 's3'],

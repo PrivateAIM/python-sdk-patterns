@@ -194,8 +194,13 @@ class ProxyModel:
                 agg_res, converged = aggregator.aggregate(list(result_dict.values()), simple_analysis)
 
                 if converged:
+                    self.flame.flame_log("Submitting final results...",
+                                         log_type=LogTypeLiteral.INFO.value,
+                                         halt_submission=True)
                     response = self.flame.submit_final_result(agg_res, output_type, multiple_results, filename=filename)
-                    self.flame.flame_log(f"success (response={response})", log_type=LogTypeLiteral.INFO.value)
+                    self.flame.flame_log(f"success (response={response})",
+                                         log_type=LogTypeLiteral.INFO.value,
+                                         append=True)
                     self.flame.analysis_finished()
                     aggregator.node_finished()
                 else:
