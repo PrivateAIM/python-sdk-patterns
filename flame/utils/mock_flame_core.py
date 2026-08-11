@@ -344,7 +344,7 @@ class MockFlameCoreSDK:
                 if type(result) in [int, float]:
                     enable_features("contrib")
                     scale = local_dp['sensitivity'] / local_dp['epsilon']  # Laplace scale parameter
-                    laplace_mech = make_laplace(input_domain=atom_domain(T=float),
+                    laplace_mech = make_laplace(input_domain=atom_domain(T=float, nan=False),
                                                 input_metric=absolute_distance(T=float),
                                                 scale=scale)
                     result = laplace_mech(float(result))
