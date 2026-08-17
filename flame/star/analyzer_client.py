@@ -1,3 +1,5 @@
+import traceback
+
 from abc import abstractmethod
 from typing import Any, Optional, Union
 
@@ -24,7 +26,7 @@ class Analyzer(Node):
             self.flame.flame_log("An Error occured during execution of the given 'analysis_method' function "
                                  "(details available at the executing node)",
                                  log_type=LogTypeLiteral.ERROR.value,
-                                 hidden_error_msg=repr(e))
+                                 hidden_error_msg=traceback.format_exc())
 
         self.num_iterations += 1
 

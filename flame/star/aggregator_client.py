@@ -1,3 +1,5 @@
+import traceback
+
 from abc import abstractmethod
 from typing import Any, Optional, Union
 
@@ -29,7 +31,7 @@ class Aggregator(Node):
             self.flame.flame_log("An Error occurred during execution of the given 'aggregation_method' or "
                                  "'has_converged' function (details available at the executing node)",
                                  log_type=LogTypeLiteral.ERROR.value,
-                                 hidden_error_msg=repr(e))
+                                 hidden_error_msg=traceback.format_exc())
 
         if not simple_analysis:
             converged = self.delta_criteria if self.num_iterations != 0 else False
