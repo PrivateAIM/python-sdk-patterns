@@ -368,10 +368,11 @@ class MockFlameCoreSDK:
                                remote_node_ids: Optional[list[str]] = None,
                                tag: Optional[str] = None) -> Union[dict[str, dict[str, str]], dict[str, str]]:
         filename = str(uuid.uuid4())
-        save_location = ""
         if location == "local":
-            storage_dir = self._test_kwargs.local_storage_dir()
-            if not storage_dir:
+            storage_dir = self._test_kwargs["local_storage_dir"]
+            if storage_dir is None:
+                storage_dir = '.'
+            elif not storage_dir:
                 os.mkdir(storage_dir)
             node_store = f"{storage_dir}/{self.get_id()}"
             if not os.path.exists(node_store):
