@@ -158,12 +158,15 @@ class MockFlameCoreSDK:
                   file: object = None,
                   log_type: str = LogTypeLiteral.INFO.value,
                   append: bool = False,
-                  halt_submission: bool = False) -> None:
+                  halt_submission: bool = False,
+                  hidden_error_msg: Optional[str] = None) -> None:
         if log_type in _LOG_TYPE_LITERALS_COLORS.keys():
             color = str(_LOG_TYPE_LITERALS_COLORS[log_type])
         else:
             color = str(_LOG_TYPE_LITERALS_COLORS[LogTypeLiteral.INFO.value])
         self.logger[self.get_id()][2] += f"\033[{color}m{msg}\033[0m{end}"
+        if hidden_error_msg is not None:
+            self.logger[self.get_id()][2] += f"\033[{color}m_HIDDEN:{msg}\033[0m{end}"
 
     def declare_log_types(self, new_log_types: dict[str, str]) -> None:
         pass
