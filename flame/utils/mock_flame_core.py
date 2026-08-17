@@ -372,7 +372,7 @@ class MockFlameCoreSDK:
             storage_dir = self._test_kwargs["local_storage_dir"]
             if storage_dir is None:
                 storage_dir = '.'
-            elif not storage_dir:
+            elif not os.path.exists(storage_dir):
                 os.mkdir(storage_dir)
             node_store = f"{storage_dir}/{self.get_id()}"
             if not os.path.exists(node_store):
