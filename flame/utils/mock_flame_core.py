@@ -388,8 +388,13 @@ class MockFlameCoreSDK:
 
             with open(save_location, "wb") as f:
                 f.write(pickle.dumps(data))
-            return {"saved": save_location}
+            return {"status": "success",
+                    "url": save_location,
+                    "id": filename}
         else:
+            self.flame_log('Warning: Issuing a global save location is not supported during local testing.\n'
+                           'Opting for sending intermediate data instead.',
+                           log_type=LogTypeLiteral.WARNING.value)
             self.send_intermediate_data(receivers=remote_node_ids, data=data)
 
     def get_intermediate_data(self,
@@ -398,7 +403,50 @@ class MockFlameCoreSDK:
                               tag: Optional[str] = None,
                               tag_option: Optional[Literal["all", "last","first"]] = "all",
                               sender_node_id: Optional[str] = None) -> Any:
-        pass #TODO
+        if location == "local":
+            storage_dir = self._test_kwargs["local_storage_dir"]
+            if storage_dir is None:
+                storage_dir = '.'
+            node_store = f"{storage_dir}/{self.get_id()}"
+            if not os.path.exists(node_store):
+                raise ValueError(f"Could not find local store for current node at specified location "
+                               f"(given node_id={self.get_id()}, storage_dir={storage_dir}).")
+            if tag is not None:
+                tagged_node_store = f"{node_store}/{tag}"
+                if not os.path.exists(tagged_node_store):
+                    raise ValueError(f"Could not find tagged node store for current node at specified location "
+                                     f"(given tag={tag}, found tags={os.listdir(node_store)}).")
+                if id is None:
+                    file_paths = os.listdir(tagged_node_store)
+                    if len(file_paths) == 0:
+                        raise ValueError(f"Could not find any file in tagged node store for current node at {tagged_node_store}")
+                    elif tag_option == "all":
+                        save_location = file_paths
+                    elif tag_option == "last":
+                        save_location = file_paths[-1]
+                    elif tag_option == "first":
+                        save_location = file_paths[0]
+                    else:
+                        raise ValueError(f"Invalid value given for tag_option. Must be 'all', 'last' or 'first' "
+                                         f"(given tag_option={tag_option}).")
+                else:
+                    save_location = f"{tagged_node_store}/{id}"
+            else:
+                if id is None:
+                    raise ValueError(f"When attempting to retrieve from local store, either id or tag must be "
+                                     f"specified (given id={id} and tag={tag}).")
+                else:
+                    save_location = f"{node_store}/{id}"
+            if isinstance(save_location, list):
+                return [pickle.loads(open(sl, "rb").read()) for sl in save_location]
+            else:
+                return pickle.loads(open(save_location, "rb").read())
+        else:
+            self.flame_log('Warning: Issuing a global save location is not supported during local testing.\n'
+                           'Opting for awaiting intermediate data instead, using given sender_node_id as sender'
+                           'and given tag as message_category.',
+                           log_type=LogTypeLiteral.WARNING.value)
+            self.await_messages(senders=sender_node_id, message_category=tag)
 
     def send_intermediate_data(self,
                                receivers: list[str],
