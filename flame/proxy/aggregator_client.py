@@ -28,14 +28,14 @@ class Aggregator(Node):
         :return: Tuple of (final_result, converged, delta_criteria)
         """
         result = self.aggregation_method(proxy_results)
-
         self.delta_criteria = self.has_converged(result, self.latest_result)
+        self.latest_result = result
+
         if not simple_analysis:
             converged = self.delta_criteria if self.num_iterations != 0 else False
         else:
             converged = True
 
-        self.latest_result = result
         self.num_iterations += 1
 
         return self.latest_result, converged

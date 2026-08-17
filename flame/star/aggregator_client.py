@@ -23,8 +23,8 @@ class Aggregator(Node):
                   checkpoint_filter: Optional[list[str]] = None) -> tuple[Any, bool]:
         try:
             result = self.aggregation_method(node_results)
-
             self.delta_criteria = self.has_converged(result, self.latest_result)
+            self.latest_result = result
         except Exception as e:
             self.flame.flame_log("An Error occurred during execution of the given 'aggregation_method' or "
                                  "'has_converged' function (details available at the executing node)",
@@ -36,7 +36,6 @@ class Aggregator(Node):
         else:
             converged = True
 
-        self.latest_result = result
         self.num_iterations += 1
 
         if self.should_checkpoint():
