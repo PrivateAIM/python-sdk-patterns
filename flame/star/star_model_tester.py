@@ -33,11 +33,16 @@ class StarModelTester:
         if node_roles is not None and len(data_splits) != len(data_splits):
             raise ValueError(f"Length of node_roles ({len(node_roles)}) must be equal to length of data_splits "
                              f"({len(data_splits)}), if node_roles is provided.")
+        node_ids = ['7b484c11-ef77-5789-a75f-cdedb8ef5963']
         for i in range(len(data_splits) + 1):
-            participant_id = str(uuid.uuid4())
             participant_role = ('default' if i < len(data_splits) else 'aggregator') \
                 if node_roles is None else \
                 (node_roles[i] if i < len(node_roles) else 'aggregator')
+            if participant_role == 'aggregator':
+                participant_id = node_ids[0].replace('7', 'a')
+            else:
+                participant_id = node_ids[-1]
+                node_ids.append(self.alphnum_increment(participant_id))
             participants.append({'id': participant_id, 'role': participant_role})
 
         threads = []
@@ -106,7 +111,6 @@ class StarModelTester:
         for thread in threads:
             thread.join()
 
-
         # write final results
         if results_queue:
             self.write_result(results_queue[0], output_type, filename, multiple_results)
@@ -114,6 +118,20 @@ class StarModelTester:
             print("No results to write. All threads failed with errors:")
             for (role, node_id), error in thread_errors.items():
                 print(f"\t{(role if role != 'default' else 'analyzer').capitalize()} {node_id}: {error}")
+
+    @staticmethod
+    def alphnum_increment(s: str) -> str:
+        l = '0123456789abcdefghijklmnopqrstuvwxyz'
+        new_s = ''
+        for c in s:
+            if c in l:
+                if c == 'z':
+                    new_s += '0'
+                else:
+                    new_s += l[l.index(c) + 1]
+            else:
+                new_s += c
+        return new_s
 
     @staticmethod
     def test_input(data: Any) -> None:
