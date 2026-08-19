@@ -34,15 +34,21 @@ class ProxyModelTester:
         if node_roles is not None and len(data_splits) != len(data_splits):
             raise ValueError(f"Length of node_roles ({len(node_roles)}) must be equal to length of data_splits "
                              f"({len(data_splits)}), if node_roles is provided.")
+        node_ids = ['da275317-dcdf-4206-2e5c-2d7a6d0bf320']
+        random.seed(2)
         total_num_nodes = len(data_splits) + num_proxy_nodes + 1
         for i in range(total_num_nodes):
-            participant_id = str(uuid.uuid4())
             if i < len(data_splits):
                 participant_role = 'default' if node_roles is None else node_roles[i]
             elif i == (total_num_nodes - 1):
                 participant_role = 'aggregator'
             else:
                 participant_role = 'proxy'
+            if participant_role == 'aggregator':
+                participant_id = str(uuid.UUID(int=uuid.UUID(node_ids[0]).int + 10))
+            else:
+                participant_id = node_ids[-1]
+                node_ids.append(str(uuid.UUID(int=uuid.UUID(node_ids[-1]).int + random.randint(11, 2**100))))
             participants.append({'id': participant_id, 'role': participant_role})
 
         threads = []
