@@ -39,10 +39,10 @@ class StarModelTester:
                 if node_roles is None else \
                 (node_roles[i] if i < len(node_roles) else 'aggregator')
             if participant_role == 'aggregator':
-                participant_id = node_ids[0].replace('7', 'a')
+                participant_id = node_ids[0]
             else:
+                node_ids.append(str(uuid.UUID(int=uuid.UUID(node_ids[-1]).int + 1)))
                 participant_id = node_ids[-1]
-                node_ids.append(self.alphnum_increment(participant_id))
             participants.append({'id': participant_id, 'role': participant_role})
 
         threads = []
@@ -118,20 +118,6 @@ class StarModelTester:
             print("No results to write. All threads failed with errors:")
             for (role, node_id), error in thread_errors.items():
                 print(f"\t{(role if role != 'default' else 'analyzer').capitalize()} {node_id}: {error}")
-
-    @staticmethod
-    def alphnum_increment(s: str) -> str:
-        l = '0123456789abcdefghijklmnopqrstuvwxyz'
-        new_s = ''
-        for c in s:
-            if c in l:
-                if c == 'z':
-                    new_s += '0'
-                else:
-                    new_s += l[l.index(c) + 1]
-            else:
-                new_s += c
-        return new_s
 
     @staticmethod
     def test_input(data: Any) -> None:
