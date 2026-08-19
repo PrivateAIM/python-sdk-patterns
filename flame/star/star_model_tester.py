@@ -2,6 +2,7 @@ import pickle
 import threading
 import uuid
 import traceback
+import random
 from typing import Any, Type, Literal, Optional, Union
 
 from flame.star import StarModel, StarLocalDPModel, StarAnalyzer, StarAggregator
@@ -34,15 +35,16 @@ class StarModelTester:
             raise ValueError(f"Length of node_roles ({len(node_roles)}) must be equal to length of data_splits "
                              f"({len(data_splits)}), if node_roles is provided.")
         node_ids = ['7b484c11-ef77-5789-a75f-cdedb8ef5963']
+        random.seed(1)
         for i in range(len(data_splits) + 1):
             participant_role = ('default' if i < len(data_splits) else 'aggregator') \
                 if node_roles is None else \
                 (node_roles[i] if i < len(node_roles) else 'aggregator')
             if participant_role == 'aggregator':
-                participant_id = node_ids[0]
+                participant_id = str(uuid.UUID(int=uuid.UUID(node_ids[0]).int + 10))
             else:
-                node_ids.append(str(uuid.UUID(int=uuid.UUID(node_ids[-1]).int + 1)))
                 participant_id = node_ids[-1]
+                node_ids.append(str(uuid.UUID(int=uuid.UUID(node_ids[-1]).int + random.randint(11, 2**100))))
             participants.append({'id': participant_id, 'role': participant_role})
 
         threads = []
