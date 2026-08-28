@@ -162,6 +162,7 @@ class StarModel:
                 # Analyze data
                 analyzer_res = analyzer.analyze(data=self.data, checkpoint_filter=checkpoint_filter)
                 # Send intermediate result to aggregator
+                self.flame.flame_log(f"Sending intermediate results...", log_type=LogTypeLiteral.INFO.value)
                 self.flame.send_intermediate_data([aggregator_id], analyzer_res)
 
                 # If not converged await aggregated result, loop back to (**)

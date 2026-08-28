@@ -119,6 +119,7 @@ class ProxyModel:
                 analyzer_res = analyzer.analyze(data=self.data)
 
                 # Send intermediate result to assigned proxy node
+                self.flame.flame_log(f"Sending intermediate results...", log_type=LogTypeLiteral.INFO.value)
                 self.flame.send_intermediate_data([analyzer.proxy_id], analyzer_res)
 
                 # If not converged await aggregated result from proxy
@@ -155,6 +156,7 @@ class ProxyModel:
                 proxy_res = proxy.proxy_aggregate(list(result_dict.values()))
 
                 # Send aggregated result to aggregator
+                self.flame.flame_log(f"Sending intermediate results...", log_type=LogTypeLiteral.INFO.value)
                 self.flame.send_intermediate_data([aggregator_id], proxy_res)
 
                 # If not converged, await aggregated result from aggregator
@@ -205,6 +207,7 @@ class ProxyModel:
                     aggregator.node_finished()
                 else:
                     # Send aggregated result back to proxy nodes
+                    self.flame.flame_log(f"Sending aggregated results...", log_type=LogTypeLiteral.INFO.value)
                     self.flame.send_intermediate_data(aggregator.partner_node_ids, agg_res)
         else:
             raise BrokenPipeError(_ERROR_MESSAGES.IS_INCORRECT_CLASS.value)
