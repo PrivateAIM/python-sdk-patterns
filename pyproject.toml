@@ -9,7 +9,7 @@ packages = [{ include = "flame" }]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
-flamesdk = {git = "https://github.com/PrivateAIM/python-sdk.git", branch = "canary"}
+flamesdk = {git = "https://github.com/PrivateAIM/python-sdk.git", tag = "0.7.0"}
 opendp = "^0.15.1"
 
 [tool.poetry.group.dev.dependencies]

@@ -379,8 +379,8 @@ uvicorn = "^0.27.1"
 [package.source]
 type = "git"
 url = "https://github.com/PrivateAIM/python-sdk.git"
-reference = "canary"
-resolved_reference = "b7df80d9b63607b7d25c1fc2ff453c2d38e31cc9"
+reference = "0.7.0"
+resolved_reference = "2d39f88ad062186936b446e8e97745783611b8e9"
 
 [[package]]
 name = "fonttools"
@@ -2543,4 +2543,4 @@ dev = ["pytest", "setuptools"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4.0"
-content-hash = "585819cab8332958fc9159e8ffeb2120108d4e11af12141f905cf4afbdd42265"
+content-hash = "3ac74a499cf3e321bdd53fc073285b6ca34e776b926337bf006a131360128d94"
