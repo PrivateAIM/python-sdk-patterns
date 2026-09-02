@@ -21,7 +21,7 @@ class StarLocalDPModel(StarModel):
                  analyzer: Type[Analyzer],
                  aggregator: Type[Aggregator],
                  data_type: Literal['fhir', 's3'],
-                 query: Optional[Union[str, list[str]]] = None,
+                 query: Optional[Union[str, list[str]]] = [],
                  simple_analysis: bool = True,
                  output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                  multiple_results: bool = False,
@@ -29,6 +29,8 @@ class StarLocalDPModel(StarModel):
                  stream_log_level: int = 20,
                  analyzer_kwargs: Optional[dict] = None,
                  aggregator_kwargs: Optional[dict] = None,
+                 load_checkpoint: Optional[int] = None,
+                 checkpoint_filter: Optional[list[str]] = None,
                  epsilon: Optional[float] = None,
                  sensitivity: Optional[float] = None,
                  test_mode: bool = False,
@@ -46,6 +48,8 @@ class StarLocalDPModel(StarModel):
                          stream_log_level=stream_log_level,
                          analyzer_kwargs=analyzer_kwargs,
                          aggregator_kwargs=aggregator_kwargs,
+                         load_checkpoint=load_checkpoint,
+                         checkpoint_filter=checkpoint_filter,
                          test_mode=test_mode,
                          test_kwargs=test_kwargs)
 
@@ -55,13 +59,17 @@ class StarLocalDPModel(StarModel):
                           output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                           multiple_results: bool = False,
                           filename: Optional[Union[str, list[str]]] = None,
-                          aggregator_kwargs: Optional[dict] = None) -> None:
+                          aggregator_kwargs: Optional[dict] = None,
+                          load_checkpoint: Optional[int] = None,
+                          checkpoint_filter: Optional[list[str]] = None) -> None:
         if issubclass(aggregator, Aggregator):
             # init custom aggregator subclass
             if aggregator_kwargs is None:
                 aggregator = aggregator(flame=self.flame)
             else:
                 aggregator = aggregator(flame=self.flame, **aggregator_kwargs)
+            if load_checkpoint is not None:
+                aggregator.load_checkpoint(load_checkpoint)
 
             # Ready Check
             self._wait_until_partners_ready()
@@ -74,7 +82,9 @@ class StarLocalDPModel(StarModel):
                 result_dict = self.flame.await_intermediate_data(analyzers)
 
                 # Aggregate results
-                agg_res, converged = aggregator.aggregate(list(result_dict.values()), simple_analysis)
+                agg_res, converged = aggregator.aggregate(node_results=list(result_dict.values()),
+                                                          simple_analysis=simple_analysis,
+                                                          checkpoint_filter=checkpoint_filter)
 
                 if converged:
                     if not self.test_mode:

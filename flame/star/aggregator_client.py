@@ -1,3 +1,5 @@
+import traceback
+
 from abc import abstractmethod
 from typing import Any, Optional, Union
 
@@ -17,24 +19,29 @@ class Aggregator(Node):
             raise ValueError(f'Attempted to initialize aggregator node with mismatching configuration '
                              f'(expected: node_role="aggregator", received="{self.role}").')
 
-    def aggregate(self, node_results: list[Any], simple_analysis: bool = True) -> tuple[Any, bool]:
+    def aggregate(self,
+                  node_results: list[Any],
+                  simple_analysis: bool = True,
+                  checkpoint_filter: Optional[list[str]] = None) -> tuple[Any, bool]:
         try:
             result = self.aggregation_method(node_results)
-
             self.delta_criteria = self.has_converged(result, self.latest_result)
+            self.latest_result = result
         except Exception as e:
-            self.flame.flame_log("An Error occured during execution of the given 'aggregation_method' or "
+            self.flame.flame_log("An Error occurred during execution of the given 'aggregation_method' or "
                                  "'has_converged' function (details available at the executing node)",
-                                 log_type=LogTypeLiteral.ERROR.value)
-            raise e
+                                 log_type=LogTypeLiteral.ERROR.value,
+                                 hidden_error_msg=traceback.format_exc())
 
         if not simple_analysis:
             converged = self.delta_criteria if self.num_iterations != 0 else False
         else:
             converged = True
 
-        self.latest_result = result
         self.num_iterations += 1
+
+        if self.should_checkpoint():
+            self.set_checkpoint(checkpoint_filter)
 
         return self.latest_result, converged
 

@@ -2,44 +2,48 @@ import pickle
 import threading
 import uuid
 import traceback
-import random
-from typing import Any, Type, Literal, Optional, Union
+from typing import Any, Type, Literal, Optional, Union, Callable
 
-from flame.star import StarModel, StarLocalDPModel, StarAnalyzer, StarAggregator
+from flame.proxy import ProxyModel, ProxyAnalyzer, Proxy, ProxyAggregator
+from flame.proxy.mapping_methods import round_robin_analyzer_to_proxy_mapping
 from flame.utils.mock_flame_core import MockFlameCoreSDK
 
 
-class StarModelTester:
+class ProxyModelTester:
     def __init__(self,
                  data_splits: list[Any],
-                 analyzer: Type[StarAnalyzer],
-                 aggregator: Type[StarAggregator],
+                 analyzer: Type[ProxyAnalyzer],
+                 proxy: Type[Proxy],
+                 aggregator: Type[ProxyAggregator],
                  data_type: Literal['fhir', 's3'],
                  node_roles: Optional[list[str]] = None,
                  query: Optional[Union[str, list[str]]] = None,
+                 num_proxy_nodes: int = 1,
                  simple_analysis: bool = True,
                  output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                  multiple_results: bool = False,
                  filename: Optional[Union[str, list[str]]] = None,
                  stream_log_level: int = 20,
+                 mapping_method: Callable[[list[str], list[str]], dict[str, str]] = round_robin_analyzer_to_proxy_mapping,
                  analyzer_kwargs: Optional[dict] = None,
-                 aggregator_kwargs: Optional[dict] = None,
-                 load_checkpoint: Optional[int] = None,
-                 local_storage_dir: Optional[str] = None,
-                 epsilon: Optional[float] = None,
-                 sensitivity: Optional[float] = None) -> None:
+                 proxy_kwargs: Optional[dict] = None,
+                 aggregator_kwargs: Optional[dict] = None) -> None:
         num_splits = len(data_splits)
         self.test_input(data_splits[0])
         participants = []
         if node_roles is not None and len(data_splits) != len(data_splits):
             raise ValueError(f"Length of node_roles ({len(node_roles)}) must be equal to length of data_splits "
                              f"({len(data_splits)}), if node_roles is provided.")
-        node_ids = ['7b484c11-ef77-5789-a75f-cdedb8ef5963']
-        random.seed(1)
-        for i in range(len(data_splits) + 1):
-            participant_role = ('default' if i < len(data_splits) else 'aggregator') \
-                if node_roles is None else \
-                (node_roles[i] if i < len(node_roles) else 'aggregator')
+        node_ids = ['da275317-dcdf-4206-2e5c-2d7a6d0bf320']
+        random.seed(2)
+        total_num_nodes = len(data_splits) + num_proxy_nodes + 1
+        for i in range(total_num_nodes):
+            if i < len(data_splits):
+                participant_role = 'default' if node_roles is None else node_roles[i]
+            elif i == (total_num_nodes - 1):
+                participant_role = 'aggregator'
+            else:
+                participant_role = 'proxy'
             if participant_role == 'aggregator':
                 participant_id = str(uuid.UUID(int=uuid.UUID(node_ids[0]).int + 10))
             else:
@@ -56,38 +60,34 @@ class StarModelTester:
             participant_role = participant['role']
             test_kwargs = {
                 'analyzer': analyzer,
+                'proxy': proxy,
                 'aggregator': aggregator,
                 'data_type': data_type,
                 'query': query,
+                'num_proxy_nodes': num_proxy_nodes,
                 'simple_analysis': simple_analysis,
                 'output_type': output_type,
                 'multiple_results': multiple_results,
                 'stream_log_level': stream_log_level,
+                'mapping_method': mapping_method,
                 'analyzer_kwargs': analyzer_kwargs,
+                'proxy_kwargs': proxy_kwargs,
                 'aggregator_kwargs': aggregator_kwargs,
-                'load_checkpoint': load_checkpoint,
                 'test_mode': True,
                 'test_kwargs': {f'{data_type}_data': data_splits[i] if i < num_splits else None,
+                                'has_data': participant_role == 'default',
                                 'node_id': participant_id,
                                 'aggregator_id': participants[-1]['id'],
                                 'participants': [part for j, part in enumerate(participants) if i != j],
                                 'role': participant_role,
                                 'analysis_id': "analysis_id",
-                                'project_id': "project_id",
-                                'local_storage_dir': local_storage_dir
+                                'project_id': "project_id"
                                 }
             }
-            use_local_dp = (epsilon is not None) and (sensitivity is not None)
-            if use_local_dp:
-                test_kwargs['epsilon'] = epsilon
-                test_kwargs['sensitivity'] = sensitivity
 
-            def run_node(kwargs=test_kwargs, use_dp=use_local_dp):
+            def run_node(kwargs=test_kwargs):
                 try:
-                    if not use_dp:
-                        flame = StarModel(**kwargs).flame
-                    else:
-                        flame = StarLocalDPModel(**kwargs).flame
+                    flame = ProxyModel(**kwargs).flame
                     if kwargs['test_kwargs']['role'] == 'aggregator':
                         results_queue.append(flame.final_results_storage)
                 except Exception:
@@ -211,3 +211,4 @@ class StarModelTester:
                     print(f"Final result_{i + 1}: {res}")
             else:
                 print(f"Final result: {result}")
+

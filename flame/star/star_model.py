@@ -25,7 +25,7 @@ class StarModel:
                  analyzer: Type[Analyzer],
                  aggregator: Type[Aggregator],
                  data_type: Literal['fhir', 's3'],
-                 query: Optional[Union[str, list[str]]] = None,
+                 query: Optional[Union[str, list[str]]] = [],
                  simple_analysis: bool = True,
                  output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                  multiple_results: bool = False,
@@ -33,6 +33,8 @@ class StarModel:
                  stream_log_level: int = 20,
                  analyzer_kwargs: Optional[dict] = None,
                  aggregator_kwargs: Optional[dict] = None,
+                 load_checkpoint: Optional[int] = None,
+                 checkpoint_filter: Optional[list[str]] = None,
                  test_mode: bool = False,
                  test_kwargs: Optional[dict] = None) -> None:
         self.test_mode = test_mode
@@ -50,7 +52,9 @@ class StarModel:
                                  data_type=data_type,
                                  query=query,
                                  simple_analysis=simple_analysis,
-                                 analyzer_kwargs=analyzer_kwargs)
+                                 analyzer_kwargs=analyzer_kwargs,
+                                 load_checkpoint=load_checkpoint,
+                                 checkpoint_filter=checkpoint_filter)
         elif self._is_aggregator():
             self.flame.flame_log("Aggregator started", log_type=LogTypeLiteral.INFO.value)
             self._start_aggregator(aggregator,
@@ -58,7 +62,9 @@ class StarModel:
                                    output_type=output_type,
                                    multiple_results=multiple_results,
                                    filename=filename,
-                                   aggregator_kwargs=aggregator_kwargs)
+                                   aggregator_kwargs=aggregator_kwargs,
+                                   load_checkpoint=load_checkpoint,
+                                   checkpoint_filter=checkpoint_filter)
         else:
             raise BrokenPipeError("Has to be either analyzer or aggregator")
         if not self.test_mode:
@@ -78,13 +84,17 @@ class StarModel:
                           output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                           multiple_results: bool = False,
                           filename: Optional[Union[str, list[str]]] = None,
-                          aggregator_kwargs: Optional[dict] = None) -> None:
+                          aggregator_kwargs: Optional[dict] = None,
+                          load_checkpoint: Optional[int] = None,
+                          checkpoint_filter: Optional[list[str]] = None) -> None:
         if issubclass(aggregator, Aggregator):
             # init custom aggregator subclass
             if aggregator_kwargs is None:
                 aggregator = aggregator(flame=self.flame)
             else:
                 aggregator = aggregator(flame=self.flame, **aggregator_kwargs)
+            if load_checkpoint is not None:
+                aggregator.load_checkpoint(load_checkpoint)
 
             # Ready Check
             self._wait_until_partners_ready()
@@ -98,7 +108,9 @@ class StarModel:
                 result_dict = self.flame.await_intermediate_data(analyzers)
 
                 # Aggregate results
-                agg_res, converged = aggregator.aggregate(list(result_dict.values()), simple_analysis)
+                agg_res, converged = aggregator.aggregate(node_results=list(result_dict.values()),
+                                                          simple_analysis=simple_analysis,
+                                                          checkpoint_filter=checkpoint_filter)
 
                 if converged:
                     if not self.test_mode:
@@ -108,7 +120,9 @@ class StarModel:
                     response = self.flame.submit_final_result(agg_res, output_type, multiple_results,
                                                               filename=filename)
                     if not self.test_mode:
-                        self.flame.flame_log(f"success (response={response})", log_type=LogTypeLiteral.INFO.value)
+                        self.flame.flame_log(f"success (response={response})",
+                                             log_type=LogTypeLiteral.INFO.value,
+                                             append=True)
                     self.flame.analysis_finished()
                     aggregator.node_finished()      # LOOP BREAK
                 else:
@@ -123,13 +137,17 @@ class StarModel:
                         data_type: Literal['fhir', 's3'],
                         query: Optional[Union[str, list[str]]] = None,
                         simple_analysis: bool = True,
-                        analyzer_kwargs: Optional[dict] = None) -> None:
+                        analyzer_kwargs: Optional[dict] = None,
+                        load_checkpoint: Optional[int] = None,
+                        checkpoint_filter: Optional[list[str]] = None) -> None:
         if issubclass(analyzer, Analyzer):
             # init custom analyzer subclass
             if analyzer_kwargs is None:
                 analyzer = analyzer(flame=self.flame)
             else:
                 analyzer = analyzer(flame=self.flame, **analyzer_kwargs)
+            if load_checkpoint is not None:
+                analyzer.load_checkpoint(load_checkpoint)
 
             aggregator_id = self.flame.get_aggregator_id()
 
@@ -142,8 +160,9 @@ class StarModel:
             # Check converged status on Hub
             while not analyzer.finished:  # (**)
                 # Analyze data
-                analyzer_res = analyzer.analyze(data=self.data)
+                analyzer_res = analyzer.analyze(data=self.data, checkpoint_filter=checkpoint_filter)
                 # Send intermediate result to aggregator
+                self.flame.flame_log(f"Sending intermediate results...", log_type=LogTypeLiteral.INFO.value)
                 self.flame.send_intermediate_data([aggregator_id], analyzer_res)
 
                 # If not converged await aggregated result, loop back to (**)
@@ -161,32 +180,36 @@ class StarModel:
             aggregator_id = self.flame.get_aggregator_id()
             if not self.test_mode:
                 self.flame.flame_log("Awaiting contact with aggregator node...",
-                                     log_type=LogTypeLiteral.INFO.value)
+                                     log_type=LogTypeLiteral.INFO.value,
+                                     halt_submission=True)
             ready_check_dict = self.flame.ready_check([aggregator_id])
 
             if not ready_check_dict[aggregator_id]:
+                self.flame.flame_log("failed", log_type=LogTypeLiteral.ERROR.value, append=True)
                 raise BrokenPipeError("Could not contact aggregator")
 
             if not self.test_mode:
-                self.flame.flame_log("Awaiting contact with aggregator node...success",
-                                     log_type=LogTypeLiteral.INFO.value)
+                self.flame.flame_log("success", log_type=LogTypeLiteral.INFO.value, append=True)
         else:
             analyzer_ids = self.flame.get_participant_ids()
             if not self.test_mode:
                 self.flame.flame_log("Awaiting contact with analyzer nodes...",
-                                     log_type=LogTypeLiteral.INFO.value)
+                                     log_type=LogTypeLiteral.INFO.value,
+                                     halt_submission=True)
             ready_check_dict = self.flame.ready_check(analyzer_ids)
             if not all(ready_check_dict.values()):
+                self.flame.flame_log("failed", log_type=LogTypeLiteral.ERROR.value, append=True)
                 raise BrokenPipeError("Could not contact all analyzers")
             if not self.test_mode:
-                self.flame.flame_log("Awaiting contact with analyzer nodes...success",
-                                     log_type=LogTypeLiteral.INFO.value)
+                self.flame.flame_log("success", log_type=LogTypeLiteral.INFO.value, append=True)
 
     def _get_data(self,
                   data_type: Literal['fhir', 's3'],
                   query: Optional[Union[str, list[str]]] = None) -> None:
-        if type(query) == str:
+        if (type(query) == str) and query:
             query = [query]
+        elif not query:
+            query = []
 
         if data_type == 'fhir':
             self.data = self.flame.get_fhir_data(query)

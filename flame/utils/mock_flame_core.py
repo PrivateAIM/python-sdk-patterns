@@ -1,4 +1,8 @@
+import pickle
 import time
+import os
+import uuid
+
 from httpx import AsyncClient
 from io import StringIO
 from typing import Any, Literal, Optional, Union
@@ -13,6 +17,7 @@ from flamesdk.resources.utils.constants import LogTypeLiteral
 
 _REQUIRED_KWARGS = ['node_id', 'aggregator_id', 'role', 'participants']
 
+CHECKPOINT_TAG_PREFIX = 'checkpoint-'
 
 _LOG_TYPE_LITERALS_COLORS = {LogTypeLiteral.INFO.value: 36,
                              LogTypeLiteral.NOTICE.value: 32,
@@ -98,6 +103,36 @@ class MockFlameCoreSDK:
     def get_role(self) -> str:
         return self.config.node_role
 
+    def get_self_node_index(self) -> int:
+        """
+        Returns the index of the executing node id from list containing all analysis node ids sorted alphanumerically.
+        :return: the node id index
+        """
+        return self.get_node_index(self.get_id())
+
+    def get_node_index(self, node_id: str) -> Optional[int]:
+        """
+        Returns the index of the given node id from list containing all analysis node ids sorted alphanumerically.
+        If the given id cannot be found returns None.
+        :return: the node id index or None
+        """
+        id_list = self.get_participant_ids()
+        id_list.append(self.get_id())
+        if node_id in id_list:
+            return sorted(id_list).index(node_id)
+        else:
+            self.flame_log(f"\tSearched node id '{node_id}' not found during indexing attempt",
+                           log_type= LogTypeLiteral.WARNING.value)
+            return None
+
+
+    def node_has_data(self) -> bool:
+        """
+        Returns whether the node has access to data via DataAPI.
+        Used for distinguishing between analyzer nodes (with data) and proxy nodes (without data).
+        """
+        return self._test_kwargs.get('has_data', True)
+
     def analysis_finished(self) -> bool:
         if self.get_participant_ids():
             self.send_message(self.get_participant_ids(),
@@ -120,14 +155,18 @@ class MockFlameCoreSDK:
                   msg: Union[str, bytes],
                   sep: str = ' ',
                   end: str = '\n',
+                  file: object = None,
                   log_type: str = LogTypeLiteral.INFO.value,
                   append: bool = False,
-                  halt_submission: bool = False) -> None:
+                  halt_submission: bool = False,
+                  hidden_error_msg: Optional[str] = None) -> None:
         if log_type in _LOG_TYPE_LITERALS_COLORS.keys():
             color = str(_LOG_TYPE_LITERALS_COLORS[log_type])
         else:
             color = str(_LOG_TYPE_LITERALS_COLORS[LogTypeLiteral.INFO.value])
         self.logger[self.get_id()][2] += f"\033[{color}m{msg}\033[0m{end}"
+        if hidden_error_msg is not None:
+            self.logger[self.get_id()][2] += f"\033[{color}m_HIDDEN:{hidden_error_msg}\033[0m{end}"
 
     def declare_log_types(self, new_log_types: dict[str, str]) -> None:
         pass
@@ -148,6 +187,50 @@ class MockFlameCoreSDK:
         else:
             self.progress = progress
             self.logger[self.get_id()][1] = progress
+
+    def set_checkpoint(self, kwargs: dict[str, Any]) -> None:
+        """
+        Saves given kwargs into local node storage for future analysis retrieval. raise Warning for incorrect format
+        of kwargs
+
+        :param kwargs:
+        :return:
+        """
+        if not isinstance(kwargs, dict):
+            self.flame_log(msg=f'Expected dictionary object for kwargs in checkpoint save but received {type(kwargs)}.'
+                               f' Could not save checkpoint',
+                           log_type=LogTypeLiteral.WARNING.value)
+        elif not any(isinstance(key, str) for key in kwargs.keys()):
+            self.flame_log(msg=f'Expected string object for kwargs keys in checkpoint save but received '
+                               f'{[type(k) for k in kwargs.keys()]}. Could not save checkpoint',
+                           log_type=LogTypeLiteral.WARNING.value)
+        else:
+            i = len(self.get_local_tags(CHECKPOINT_TAG_PREFIX)) + 1
+            self.flame_log(msg=f'Saved checkpoint no.{i}', log_type=LogTypeLiteral.INFO.value)
+            self.save_intermediate_data(data= kwargs,
+                                        location='local',
+                                        tag=f"{CHECKPOINT_TAG_PREFIX}{i}")
+
+    def load_checkpoint(self, index: int) -> Optional[dict[str, Any]]:
+        """
+        Load saved kwargs from previous checkpoint with given index. return None if not found
+
+        :param index:
+        :return kwargs:
+        """
+        locally_tagged_saves = self.get_local_tags(f"{CHECKPOINT_TAG_PREFIX}{index}")
+        if len(locally_tagged_saves) == 1:
+            self.flame_log(msg=f'Loading checkpoint no.{index}', log_type=LogTypeLiteral.INFO.value)
+            return self.get_intermediate_data(location='local', tag=f"{CHECKPOINT_TAG_PREFIX}{index}")
+        elif len(locally_tagged_saves) > 1:
+            self.flame_log(msg=f'Error: Loading checkpoint no.{index} failed. Multiple saves under same tag found',
+                           log_type=LogTypeLiteral.ERROR.value)
+            return None
+        else:
+            self.flame_log(msg=f'No checkpoint {index} was found. Returning None',
+                           log_type=LogTypeLiteral.WARNING.value)
+            return None
+
 
     def fhir_to_csv(self,
                     fhir_data: dict[str, Any],
@@ -264,7 +347,7 @@ class MockFlameCoreSDK:
                 if type(result) in [int, float]:
                     enable_features("contrib")
                     scale = local_dp['sensitivity'] / local_dp['epsilon']  # Laplace scale parameter
-                    laplace_mech = make_laplace(input_domain=atom_domain(T=float),
+                    laplace_mech = make_laplace(input_domain=atom_domain(T=float, nan=False),
                                                 input_metric=absolute_distance(T=float),
                                                 scale=scale)
                     result = laplace_mech(float(result))
@@ -284,7 +367,35 @@ class MockFlameCoreSDK:
                                location: Literal["local", "global"],
                                remote_node_ids: Optional[list[str]] = None,
                                tag: Optional[str] = None) -> Union[dict[str, dict[str, str]], dict[str, str]]:
-        pass
+        filename = str(uuid.uuid4())
+        if location == "local":
+            storage_dir = self._test_kwargs["local_storage_dir"]
+            if storage_dir is None:
+                storage_dir = '.'
+            elif not os.path.exists(storage_dir):
+                os.mkdir(storage_dir)
+            node_store = f"{storage_dir}/{self.get_id()}"
+            if not os.path.exists(node_store):
+                os.mkdir(node_store)
+
+            if tag is not None:
+                tagged_node_store = f"{node_store}/{tag}"
+                if not os.path.exists(tagged_node_store):
+                    os.mkdir(tagged_node_store)
+                save_location = f"{tagged_node_store}/{filename}"
+            else:
+                save_location = f"{node_store}/{filename}"
+
+            with open(save_location, "wb") as f:
+                f.write(pickle.dumps(data))
+            return {"status": "success",
+                    "url": save_location,
+                    "id": filename}
+        else:
+            self.flame_log('Warning: Issuing a global save location is not supported during local testing.\n'
+                           'Opting for sending intermediate data instead.',
+                           log_type=LogTypeLiteral.WARNING.value)
+            self.send_intermediate_data(receivers=remote_node_ids, data=data)
 
     def get_intermediate_data(self,
                               location: Literal["local", "global"],
@@ -292,7 +403,50 @@ class MockFlameCoreSDK:
                               tag: Optional[str] = None,
                               tag_option: Optional[Literal["all", "last","first"]] = "all",
                               sender_node_id: Optional[str] = None) -> Any:
-        pass
+        if location == "local":
+            storage_dir = self._test_kwargs["local_storage_dir"]
+            if storage_dir is None:
+                storage_dir = '.'
+            node_store = f"{storage_dir}/{self.get_id()}"
+            if not os.path.exists(node_store):
+                raise ValueError(f"Could not find local store for current node at specified location "
+                               f"(given node_id={self.get_id()}, storage_dir={storage_dir}).")
+            if tag is not None:
+                tagged_node_store = f"{node_store}/{tag}"
+                if not os.path.exists(tagged_node_store):
+                    raise ValueError(f"Could not find tagged node store for current node at specified location "
+                                     f"(given tag={tag}, found tags={os.listdir(node_store)}).")
+                if id is None:
+                    file_paths = os.listdir(tagged_node_store)
+                    if len(file_paths) == 0:
+                        raise ValueError(f"Could not find any file in tagged node store for current node at {tagged_node_store}")
+                    elif tag_option == "all":
+                        save_location = file_paths
+                    elif tag_option == "last":
+                        save_location = file_paths[-1]
+                    elif tag_option == "first":
+                        save_location = file_paths[0]
+                    else:
+                        raise ValueError(f"Invalid value given for tag_option. Must be 'all', 'last' or 'first' "
+                                         f"(given tag_option={tag_option}).")
+                else:
+                    save_location = f"{tagged_node_store}/{id}"
+            else:
+                if id is None:
+                    raise ValueError(f"When attempting to retrieve from local store, either id or tag must be "
+                                     f"specified (given id={id} and tag={tag}).")
+                else:
+                    save_location = f"{node_store}/{id}"
+            if isinstance(save_location, list):
+                return [pickle.loads(open(sl, "rb").read()) for sl in save_location]
+            else:
+                return pickle.loads(open(save_location, "rb").read())
+        else:
+            self.flame_log('Warning: Issuing a global save location is not supported during local testing.\n'
+                           'Opting for awaiting intermediate data instead, using given sender_node_id as sender'
+                           'and given tag as message_category.',
+                           log_type=LogTypeLiteral.WARNING.value)
+            self.await_messages(senders=sender_node_id, message_category=tag)
 
     def send_intermediate_data(self,
                                receivers: list[str],
@@ -306,7 +460,7 @@ class MockFlameCoreSDK:
                                          message_category=message_category,
                                          message=data,
                                          max_attempts=max_attempts,
-                                         timeout=timeout,)
+                                         timeout=timeout)
         if self.get_id() == self.get_aggregator_id():
             self.__pop_logs__()
         return receivers, []
@@ -329,13 +483,23 @@ class MockFlameCoreSDK:
 
     def get_fhir_data(self, fhir_queries: Optional[list[str]] = None) -> Optional[list[Union[dict[str, dict], dict]]]:
         if 'fhir_data' in self._test_kwargs.keys():
-            return self.data
+            if (fhir_queries is not None) and (len(fhir_queries) != 0):
+                return [{k: v for k, v in ds.items() if k in fhir_queries}
+                        for ds in self.data if any(q in ds.keys() for q in fhir_queries)]
+            else:
+                return None
         else:
             raise ValueError("No FHIR data provided in test_kwargs.")
 
     def get_s3_data(self, s3_keys: Optional[list[str]] = None) -> Optional[list[Union[dict[str, str], str]]]:
         if 's3_data' in self._test_kwargs.keys():
-            return self.data
+            if s3_keys == []:
+                return self.data
+            if s3_keys is not None:
+                return [{k: v for k, v in ds if k in s3_keys} for ds in self.data if
+                        any(q in ds.keys() for q in s3_keys)]
+            else:
+                return None
         else:
             raise ValueError("No S3 data provided in test_kwargs.")
 
