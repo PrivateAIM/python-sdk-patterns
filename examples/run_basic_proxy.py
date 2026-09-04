@@ -2,6 +2,9 @@ from typing import Any, Optional
 
 from flame.proxy import ProxyModel, ProxyAnalyzer, Proxy, ProxyAggregator
 
+# Name of the object in the connected s3-bucket that holds the patient count (see examples/data/patient_count.txt)
+DATA_FILENAME = 'patient_count.txt'
+
 
 class MyAnalyzer(ProxyAnalyzer):
     proxy_params: Optional[dict[str, tuple[float, float]]] = None
@@ -21,7 +24,10 @@ class MyAnalyzer(ProxyAnalyzer):
                                    - Contains the result from the aggregator's aggregation_method in subsequent iterations.
         :return: Any result of your analysis on one node (ex. patient count).
         """
-        patient_count = float(data[0]['Patient?_summary=count']['total'])
+        raw = data[0][DATA_FILENAME]
+        if isinstance(raw, (bytes, bytearray)):
+            raw = raw.decode('utf-8')
+        patient_count = float(raw.strip())
         if self.num_iterations > 0:
             self.flame.set_progress((self.num_iterations / 2) * 100)
         self.flame.flame_log(f"Patient count: {patient_count}")
@@ -73,8 +79,8 @@ def main():
         analyzer=MyAnalyzer,             # Custom analyzer class
         proxy=MyProxy,                   # Custom proxy class
         aggregator=MyAggregator,         # Custom aggregator class
-        data_type='fhir',                # Type of data source ('fhir' or 's3')
-        query='Patient?_summary=count',  # Query or list of queries to retrieve data
+        data_type='s3',                  # Type of data source ('fhir' or 's3')
+        query=DATA_FILENAME,             # Query or list of queries (s3 object names) to retrieve data
         num_proxy_nodes=1,               # Number of proxy nodes partaking in this analysis
         simple_analysis=False,            # True for single-iteration; False for multi-iterative analysis
         output_type='str',               # Output format for the final result ('str', 'bytes', or 'pickle')
