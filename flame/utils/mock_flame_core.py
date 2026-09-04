@@ -49,10 +49,18 @@ class IterationTracker:
         return self.iter
 
 
+class MockMessage:
+    def __init__(self, message: dict):
+        if "meta" in message.keys():
+            raise KeyError("Cannot use field 'meta' in message body. "
+                           "This field is reserved for meta data used by the message broker.")
+        self.body = message
+
+
 class MockFlameCoreSDK:
     num_iterations: IterationTracker = IterationTracker()
     logger: dict[str, list[str]] = {}
-    message_broker: dict[str, list[dict[str, Any]]] = {}
+    message_broker: dict[str, list[MockMessage]] = {}
     final_results_storage: Optional[Any] = None
     stop_event: list[tuple[str]] = []
 
@@ -260,11 +268,7 @@ class MockFlameCoreSDK:
             if r not in self.message_broker.keys():
                 self.message_broker[r] = []
             inbox = self.message_broker[r]
-            inbox.append({
-                "category": message_category,
-                "sender": sender,
-                "data": message,
-            })
+            inbox.append(MockMessage({"category": message_category, "sender": sender, "data": message}))
             self.message_broker[r] = inbox
         return receivers, []
 
@@ -272,7 +276,7 @@ class MockFlameCoreSDK:
                        senders: list[str],
                        message_category: str,
                        message_id: Optional[str] = None,
-                       timeout: Optional[int] = None) -> dict[str, Optional[list[str]]]:
+                       timeout: Optional[int] = None) -> dict[str, Optional[list[MockMessage]]]:
         if not isinstance(senders, list):
             raise ValueError(f"Senders should be provided as a list of participant ids. Not {senders} of type {type(senders)}.")
         else:
@@ -286,12 +290,12 @@ class MockFlameCoreSDK:
             try:
                 inbox = self.message_broker.get(node_id, [])
                 if inbox:
-                    finished_messages = [msg for msg in inbox if msg["category"] == 'analysis_finished']
+                    finished_messages = [msg for msg in inbox if msg.body["category"] == 'analysis_finished']
                     if finished_messages:
                         self._node_finished()
                         break
 
-                    msg_senders = [msg["sender"] for msg in inbox if msg["category"] == message_category]
+                    msg_senders = [msg.body["sender"] for msg in inbox if msg.body["category"] == message_category]
                     if all(sender in msg_senders for sender in senders):
                         break
                 raise KeyError
@@ -305,8 +309,10 @@ class MockFlameCoreSDK:
             remaining_msgs = []
             latest_results = {}
             for msg in inbox:
-                if (msg["category"] == message_category) and (msg["sender"] in senders):
-                    latest_results[msg["sender"]] = msg["data"]
+                if (msg.body["category"] == message_category) and (msg.body["sender"] in senders):
+                    if msg.body["sender"] not in latest_results.keys():
+                        latest_results[msg.body["sender"]] = []
+                    latest_results[msg.body["sender"]].append(MockMessage(msg.body["data"]))
                 else:
                     remaining_msgs.append(msg)
 
@@ -316,13 +322,18 @@ class MockFlameCoreSDK:
         else:
             return {self.config.aggregator_id: None}
 
-    def get_messages(self, status: Literal['unread', 'read'] = 'unread') -> list[str]:
-        pass
+    def get_messages(self, status: Literal['unread', 'read'] = 'unread') -> list[MockMessage]:
+        inbox = self.message_broker.get(self.get_id(), [])
+        finished_messages = [msg for msg in inbox if msg.body["category"] == 'analysis_finished']
+        if finished_messages:
+            self._node_finished()
+        return inbox
 
     def delete_messages(self, message_ids: list[str]) -> int:
         pass
 
-    def clear_messages(self, status: Literal["read", "unread", "all"] = "read",
+    def clear_messages(self,
+                       status: Literal["read", "unread", "all"] = "read",
                        min_age: Optional[int] = None) -> int:
         pass
 
@@ -332,8 +343,9 @@ class MockFlameCoreSDK:
                                             message: dict,
                                             max_attempts: int = 1,
                                             timeout: Optional[int] = None,
-                                            attempt_timeout: int = 10) -> dict[str, Optional[list[str]]]:
-        pass
+                                            attempt_timeout: int = 10) -> dict[str, Optional[list[MockMessage]]]:
+        self.send_message(receivers, message_category, message, max_attempts, timeout, attempt_timeout)
+        return self.await_messages(receivers, message_category, None, timeout)
 
     ########################################Storage Client###########################################
     def submit_final_result(self,
@@ -355,6 +367,8 @@ class MockFlameCoreSDK:
                     self.flame_log("Given result type is not supported for local DP -> DP step will be skipped.",
                                    log_type=LogTypeLiteral.WARNING.value)
             self.final_results_storage = result
+            self.flame_log(f"Submitted final result: {str(result)[:100]}{'...' if len(str(result)) > 100 else ''}",
+                           log_type=LogTypeLiteral.INFO.value)
             self.set_progress(100)
             self.__pop_logs__()
             return {"result": "submitted"}
@@ -366,7 +380,9 @@ class MockFlameCoreSDK:
                                data: Any,
                                location: Literal["local", "global"],
                                remote_node_ids: Optional[list[str]] = None,
-                               tag: Optional[str] = None) -> Union[dict[str, dict[str, str]], dict[str, str]]:
+                               tag: Optional[str] = None) -> Union[dict[str, dict[str, str]],
+                                                                   dict[str, str],
+                                                                   tuple[list[str], list[str]]]:
         filename = str(uuid.uuid4())
         if location == "local":
             storage_dir = self._test_kwargs["local_storage_dir"]
@@ -395,7 +411,7 @@ class MockFlameCoreSDK:
             self.flame_log('Warning: Issuing a global save location is not supported during local testing.\n'
                            'Opting for sending intermediate data instead.',
                            log_type=LogTypeLiteral.WARNING.value)
-            self.send_intermediate_data(receivers=remote_node_ids, data=data)
+            return self.send_intermediate_data(receivers=remote_node_ids, data=data)
 
     def get_intermediate_data(self,
                               location: Literal["local", "global"],
@@ -446,7 +462,7 @@ class MockFlameCoreSDK:
                            'Opting for awaiting intermediate data instead, using given sender_node_id as sender'
                            'and given tag as message_category.',
                            log_type=LogTypeLiteral.WARNING.value)
-            self.await_messages(senders=sender_node_id, message_category=tag)
+            return self.await_intermediate_data(senders=[sender_node_id], message_category=tag)
 
     def send_intermediate_data(self,
                                receivers: list[str],
@@ -458,7 +474,7 @@ class MockFlameCoreSDK:
                                encrypted: bool = False) -> tuple[list[str], list[str]]:
         receivers, _ = self.send_message(receivers=receivers,
                                          message_category=message_category,
-                                         message=data,
+                                         message={'data': data},
                                          max_attempts=max_attempts,
                                          timeout=timeout)
         if self.get_id() == self.get_aggregator_id():
@@ -469,7 +485,12 @@ class MockFlameCoreSDK:
                                 senders: list[str],
                                 message_category: str = "intermediate_data",
                                 timeout: Optional[int] = None) -> dict[str, Any]:
-        return self.await_messages(senders=senders, message_category=message_category, timeout=timeout)
+        sent_data = {}
+        response_dict = self.await_messages(senders=senders, message_category=message_category, timeout=timeout)
+        if response_dict is not None:
+            for sender, messages in response_dict.items():
+                sent_data[sender] = messages[-1].body['data']
+        return sent_data
 
     def get_local_tags(self, filter: Optional[str] = None) -> list[str]:
         pass
@@ -508,16 +529,17 @@ class MockFlameCoreSDK:
         return self.config.finished
 
     def __pop_logs__(self, failure_message: bool = False) -> None:
-        print(f"--- Starting Iteration {self.__get_iteration__()} ---")
-        if failure_message:
-            self.flame_log("Exception was raised (see Stacktrace)!", log_type=LogTypeLiteral.ERROR.value)
-        for k, v in self.logger.items():
-            role, progress, log = v
-            print(f"Logs for {'Analyzer' if role == 'default' else role.capitalize()} {k} (Progress: {progress}%):")
-            self.logger[k] = [role, progress, '']
-            print(log, end='')
-        print(f"--- Ending Iteration {self.__get_iteration__()} ---\n")
-        self.num_iterations.increment()
+        if (not self.config.finished) and (self.config.node_role == 'aggregator'):
+            print(f"--- Starting Iteration {self.__get_iteration__()} ---")
+            if failure_message:
+                self.flame_log("Exception was raised (see Stacktrace)!", log_type=LogTypeLiteral.ERROR.value)
+            for k, v in self.logger.items():
+                role, progress, log = v
+                print(f"Logs for {'Analyzer' if role == 'default' else role.capitalize()} {k} (Progress: {progress}%):")
+                self.logger[k] = [role, progress, '']
+                print(log, end='')
+            print(f"--- Ending Iteration {self.__get_iteration__()} ---\n")
+            self.num_iterations.increment()
 
     def __get_iteration__(self):
         return self.num_iterations.get_iterations()

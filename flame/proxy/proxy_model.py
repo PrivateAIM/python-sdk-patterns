@@ -196,13 +196,15 @@ class ProxyModel:
                 agg_res, converged = aggregator.aggregate(list(result_dict.values()), simple_analysis)
 
                 if converged:
-                    self.flame.flame_log("Submitting final results...",
-                                         log_type=LogTypeLiteral.INFO.value,
-                                         halt_submission=True)
+                    if not self.test_mode:
+                        self.flame.flame_log("Submitting final results...",
+                                             log_type=LogTypeLiteral.INFO.value,
+                                             halt_submission=True)
                     response = self.flame.submit_final_result(agg_res, output_type, multiple_results, filename=filename)
-                    self.flame.flame_log(f"success (response={response})",
-                                         log_type=LogTypeLiteral.INFO.value,
-                                         append=True)
+                    if not self.test_mode:
+                        self.flame.flame_log(f"success (response={response})",
+                                             log_type=LogTypeLiteral.INFO.value,
+                                             append=True)
                     self.flame.analysis_finished()
                     aggregator.node_finished()
                 else:
@@ -230,7 +232,7 @@ class ProxyModel:
                     message_category='assigned_proxy'
                 )
                 if await_response is not None:
-                    return await_response[self.flame.get_aggregator_id()]['proxy_id']
+                    return await_response[self.flame.get_aggregator_id()][-1].body['proxy_id']
                 else:
                     raise BrokenPipeError("Could not retrieve assigned proxy from aggregator")
 
@@ -245,7 +247,7 @@ class ProxyModel:
                     message_category='assigned_analyzers'
                 )
                 if await_response is not None:
-                    return await_response[self.flame.get_aggregator_id()]['analyzer_ids']
+                    return await_response[self.flame.get_aggregator_id()][-1].body['analyzer_ids']
                 else:
                     raise BrokenPipeError("Could not retrieve assigned analyzers from aggregator")
 
@@ -262,11 +264,11 @@ class ProxyModel:
         response_dict = self.flame.await_messages(partner_ids, message_category='self_roles')
         proxy_ids = []
         analyzer_ids = []
-        if all([val is not None for val in response_dict.values()]):
-            for node_id, message in response_dict.items():
-                if message['role'] == 'proxy':
+        if (response_dict is not None) and all([val is not None for val in response_dict.values()]):
+            for node_id, messages in response_dict.items():
+                if messages[-1].body['role'] == 'proxy':
                     proxy_ids.append(node_id)
-                elif message['role'] == 'default':
+                elif messages[-1].body['role'] == 'default':
                     analyzer_ids.append(node_id)
 
             if len(proxy_ids) != self.num_proxy_nodes:

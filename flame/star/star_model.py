@@ -111,7 +111,6 @@ class StarModel:
                 agg_res, converged = aggregator.aggregate(node_results=list(result_dict.values()),
                                                           simple_analysis=simple_analysis,
                                                           checkpoint_filter=checkpoint_filter)
-
                 if converged:
                     if not self.test_mode:
                         self.flame.flame_log("Submitting final results...",
