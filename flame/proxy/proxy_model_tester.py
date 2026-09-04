@@ -2,6 +2,7 @@ import pickle
 import threading
 import uuid
 import traceback
+import random
 from typing import Any, Type, Literal, Optional, Union, Callable
 
 from flame.proxy import ProxyModel, ProxyAnalyzer, Proxy, ProxyAggregator
@@ -35,7 +36,7 @@ class ProxyModelTester:
             raise ValueError(f"Length of node_roles ({len(node_roles)}) must be equal to length of data_splits "
                              f"({len(data_splits)}), if node_roles is provided.")
         node_ids = ['da275317-dcdf-4206-2e5c-2d7a6d0bf320']
-        random.seed(2)
+        random.seed(42)
         total_num_nodes = len(data_splits) + num_proxy_nodes + 1
         for i in range(total_num_nodes):
             if i < len(data_splits):

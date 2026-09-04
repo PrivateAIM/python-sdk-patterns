@@ -35,7 +35,7 @@ class StarModelTester:
             raise ValueError(f"Length of node_roles ({len(node_roles)}) must be equal to length of data_splits "
                              f"({len(data_splits)}), if node_roles is provided.")
         node_ids = ['7b484c11-ef77-5789-a75f-cdedb8ef5963']
-        random.seed(1)
+        random.seed(42)
         for i in range(len(data_splits) + 1):
             participant_role = ('default' if i < len(data_splits) else 'aggregator') \
                 if node_roles is None else \

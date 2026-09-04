@@ -22,7 +22,7 @@ from flame.star import StarModel, StarAnalyzer, StarAggregator
 # Configuration
 # ---------------------------------------------------------------------------
 
-RESULTS_DIR = Path("results/")
+RESULTS_DIR = Path("tmp/results/")
 MAX_ITERATIONS = 10
 CONVERGENCE_TOL = 1e-4
 
