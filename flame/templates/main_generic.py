@@ -1,3 +1,10 @@
+"""Skeleton entry point for a hand-written FLAME analysis.
+
+This is what :class:`flame.star.star_model.StarModel` does for you, spelled out
+against the raw SDK. Copy it when you need control over the loop itself;
+otherwise prefer one of the patterns in :mod:`flame.star` or :mod:`flame.proxy`.
+"""
+
 from flamesdk import FlameCoreSDK
 
 from flame.templates.aggregator_generic import Pattern_Aggregator
@@ -5,6 +12,11 @@ from flame.templates.analyzer_generic import Pattern_Analyzer
 
 
 def main():
+    """Connect to the FLAME protocols and run this node in its assigned role.
+
+    :raises ValueError: If the hub reports a role that is neither aggregator
+        nor analyzer.
+    """
     # start the communication with the flame message protocols, and enable access api
     flame = FlameCoreSDK()
     # await participating nodes to come online and test communication
@@ -19,7 +31,7 @@ def main():
             results = flame.await_intermediate_data(senders=flame.get_participant_ids())
             aggr_result = aggregator.aggregate(results)
 
-        flame.submit_final_result(result=aggr_result, output_type='pickle')
+        flame.submit_final_result(result=aggr_result, output_type="pickle")
         flame.analysis_finished()
 
     elif flame.is_analyzer():

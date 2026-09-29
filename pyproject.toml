@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "flame"
-version = "0.7.1"
+version = "1.0.0"
 description = ""
 authors = ["Alexander Röhl <alexander.roehl@uni-tuebingen.de>", "David Hieber <david.hieber@uni-tuebingen.de>"]
 readme = "README.md"
@@ -9,7 +9,7 @@ packages = [{ include = "flame" }]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
-flamesdk = {git = "https://github.com/PrivateAIM/python-sdk.git", tag = "0.7.0"}
+flamesdk = {git = "https://github.com/PrivateAIM/python-sdk.git", tag = "1.0.0"}
 opendp = "^0.15.1"
 
 [tool.poetry.group.dev.dependencies]
@@ -23,3 +23,9 @@ pandas = ">=2.0.3"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+# The wrapping the codebase already used; ruff cannot infer the Python floor
+# from poetry's dependency table, so target-version is set explicitly.
+line-length = 120
+target-version = "py310"

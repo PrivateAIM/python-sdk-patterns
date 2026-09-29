@@ -1,20 +1,20 @@
 from flame.proxy import ProxyModelTester
-from examples.run_basic_proxy import MyAnalyzer, MyProxy, MyAggregator
+from examples.run_basic_proxy import MyAnalyzer, MyProxy, MyAggregator, DATA_FILENAME
 
 
 if __name__ == "__main__":
-    data = [[{'Patient?_summary=count': {'total': 10}}],
-            [{'Patient?_summary=count': {'total': 20}}],
-            [{'Patient?_summary=count': {'total': 30}}],
-            [{'Patient?_summary=count': {'total': 40}}]]
+    data = [[{DATA_FILENAME: b'10'}],
+            [{DATA_FILENAME: b'20'}],
+            [{DATA_FILENAME: b'30'}],
+            [{DATA_FILENAME: b'40'}]]
 
     ProxyModelTester(
         data_splits=data,
         analyzer=MyAnalyzer,
         proxy=MyProxy,
         aggregator=MyAggregator,
-        data_type='fhir',
-        query='Patient?_summary=count',
+        data_type='s3',
+        query=DATA_FILENAME,
         num_proxy_nodes=2,
         simple_analysis=False,
         output_type='str',
