@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "flame"
-version = "0.7.1"
+version = "1.0.0"
 description = ""
 authors = ["Alexander Röhl <alexander.roehl@uni-tuebingen.de>", "David Hieber <david.hieber@uni-tuebingen.de>"]
 readme = "README.md"
@@ -23,3 +23,9 @@ pandas = ">=2.0.3"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+# The wrapping the codebase already used; ruff cannot infer the Python floor
+# from poetry's dependency table, so target-version is set explicitly.
+line-length = 120
+target-version = "py310"

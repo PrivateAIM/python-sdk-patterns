@@ -1,18 +1,39 @@
-from typing import Any, Optional
+"""Common state shared by every node taking part in a proxy analysis."""
+
+from typing import Any
 
 from flamesdk import FlameCoreSDK
 
 
 class Node:
+    """Base class for the analyzer, proxy and aggregator ends of the topology.
+
+    It holds the bookkeeping all three roles need: who am I, who are my
+    partners, am I done, and what did I produce last.
+
+    :ivar id: Id of the node this code is executing on.
+    :ivar role: Role assigned to this node by the FLAME hub; one of "default"
+        (an analyzer), "proxy" or "aggregator".
+    :ivar finished: Whether this node has left its analysis loop.
+    :ivar latest_result: Result of the most recent round on this node.
+    :ivar partner_node_ids: Ids of all other nodes in the analysis.
+    :ivar num_iterations: Number of rounds completed so far.
+    :ivar flame: The FLAME Core SDK (or its mock, during local testing).
+    """
+
     id: str
     role: str  # Can be "default", "proxy" or "aggregator"
     finished: bool
-    latest_result: Optional[Any]
+    latest_result: Any | None
     partner_node_ids: list[str]
     num_iterations: int
     flame: FlameCoreSDK
 
     def __init__(self, flame: FlameCoreSDK):
+        """Read the node's own identity and partners off the SDK.
+
+        :param flame: An initialized FLAME Core SDK, or its testing mock.
+        """
         self.flame = flame
 
         self.id = self.flame.get_id()
@@ -23,6 +44,7 @@ class Node:
         self.num_iterations: int = 0
 
     def node_finished(self):
+        """Mark this node as done, which breaks the enclosing analysis loop."""
         self.finished = True
 
     def set_num_iterations(self, num_iterations: int) -> None:
