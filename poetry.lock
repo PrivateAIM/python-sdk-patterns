@@ -485,7 +485,7 @@ files = [
 
 [[package]]
 name = "flamesdk"
-version = "1.0.0"
+version = "1.1.0"
 description = ""
 optional = false
 python-versions = ">=3.9"
@@ -501,8 +501,8 @@ uvicorn = "^0.27.1"
 [package.source]
 type = "git"
 url = "https://github.com/PrivateAIM/python-sdk.git"
-reference = "canary"
-resolved_reference = "2cf6e3a03d82ad520227f178f2eb64bf6ce587a7"
+reference = "1.1.0"
+resolved_reference = "f3060b93e0834cc66f9ea7b8d894b3f0c02dfb2a"
 
 [[package]]
 name = "fonttools"
@@ -2977,4 +2977,4 @@ dev = ["pytest", "setuptools"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4.0"
-content-hash = "585819cab8332958fc9159e8ffeb2120108d4e11af12141f905cf4afbdd42265"
+content-hash = "a6a7b34c1c8d336344b52a0469ed8d25a53e7c339a3048eeb9e4c9a55438808d"
