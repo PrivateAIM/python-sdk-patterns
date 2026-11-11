@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from flame.proxy import ProxyModel, ProxyAnalyzer, Proxy, ProxyAggregator
 
@@ -7,7 +7,6 @@ DATA_FILENAME = 'patient_count.txt'
 
 
 class MyAnalyzer(ProxyAnalyzer):
-    proxy_params: Optional[dict[str, tuple[float, float]]] = None
 
     def __init__(self, flame):
         super().__init__(flame)  # Connects this analyzer to the FLAME components
